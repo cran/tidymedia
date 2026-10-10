@@ -1,0 +1,353 @@
+# ffm_batch() ------------------------------------------------------------------
+
+#' Run an FFmpeg Pipeline Over Many Files
+#'
+#' Apply a pipeline-building function to every row of a jobs table and compile
+#' (and optionally run) the resulting FFmpeg command for each. This is the
+#' package's main batch function. It gives one reproducible compiled command
+#' per job, collected back into a tibble.
+#'
+#' Each column of \code{jobs} is passed by name to \code{.f} (as
+#' [purrr::pmap()] does), so a job table with columns \code{input},
+#' \code{output} and \code{start} calls
+#' \code{.f(input = ..., output = ..., start = ...)}.
+#' \code{.f} must return a pipeline (see \code{\link{ffm_files}}). Give
+#' \code{.f} a \code{...} argument if \code{jobs} carries columns it does not
+#' use.
+#'
+#' Two jobs whose pipelines write to the same \code{output} path are refused
+#' before any job runs, under \code{run = FALSE} as well as \code{run = TRUE}.
+#' Paths are compared exactly as written. An output that writes no file may
+#' repeat. Such outputs are \code{-} (standard output), a \code{pipe:} URL, and
+#' an output whose last \code{-f} option is \code{-f null}, as
+#' \code{ffm_output_options("-f null")} gives.
+#'
+#' [with_timeout()] explains how to limit how long R waits for each program in
+#' a job, and what happens when a program reaches the limit.
+#'
+#' @param jobs A data frame with one row per job. Its column names are the
+#'   arguments passed to \code{.f}.
+#' @param .f A function that takes a job's columns (by name) and returns an ffm
+#'   pipeline object.
+#' @param ... Additional arguments passed on to every call of \code{.f}.
+#' @param run A logical: run each compiled command through FFmpeg (\code{TRUE},
+#'   default) or only compile them for inspection (\code{FALSE}, a dry run).
+#' @param parallel A logical: map over jobs in parallel with \pkg{furrr}
+#'   (\code{TRUE}) or sequentially (\code{FALSE}, default). Parallel runs follow
+#'   the \code{\link[future:plan]{future}} plan that you set. With \code{TRUE}
+#'   and the default sequential plan, jobs still run one at a time, and you get
+#'   a warning. Set a plan first, for example
+#'   \code{future::plan(future::multisession)}.
+#' @param verify An optional output check applied to each job (only when
+#'   \code{run = TRUE}). Give a named list of expected properties, or a
+#'   function. A list, for example \code{list(width = 1920)}, applies the same
+#'   checks to every job. A function takes the job columns like \code{.f}
+#'   (called \code{\link[purrr:pmap]{pmap}}-style) and returns such a list for
+#'   each job. Each job's output is passed to \code{\link{verify_media}}.
+#'   Unlike \code{\link{ffm_run}}, a failed check is \emph{recorded}, and does
+#'   not stop the call. Adds a logical \code{verified} column (all checks
+#'   passed), \code{NA} for jobs that did not run successfully.
+#' @param progress A logical: display a \pkg{cli} progress bar as the jobs run
+#'   (\code{TRUE}) or run quietly (\code{FALSE}, default). Only applies when
+#'   \code{run = TRUE}; safe (a no-op animation) in non-interactive sessions.
+#' @param manifest A logical. When \code{TRUE} (and \code{run = TRUE}), the
+#'   batch records a provenance manifest and attaches it to the result. The
+#'   manifest has each job's command, the FFmpeg and FFprobe versions, a
+#'   timestamp and the output size. Read it with \code{\link{ffm_manifest}}.
+#'   (default = \code{FALSE})
+#' @param checksums A logical: when \code{TRUE}, the manifest also captures md5
+#'   checksums of each job's input(s) and output. Ignored unless
+#'   \code{manifest = TRUE}. (default = \code{FALSE})
+#' @return \code{jobs} as a [tibble][tibble::tibble-package] with an added
+#'   \code{command} column, which holds the compiled FFmpeg command for each
+#'   job. When \code{run = TRUE}, it also has a logical \code{success} column.
+#'   When \code{verify} is supplied, it also has a \code{verified} column.
+#'   When \code{manifest = TRUE}, a provenance manifest is attached as an
+#'   attribute; read it with \code{\link{ffm_manifest}}.
+#' @seealso [segment_video()], which is built on \code{ffm_batch()};
+#'   [verify_media()] for the verification spec and [ffm_manifest()] for the
+#'   provenance manifest.
+#' @family pipeline functions
+#' @examples
+#' video <- system.file("extdata", "sample.mp4", package = "tidymedia")
+#' jobs <- tibble::tibble(
+#'   input  = c(video, video),
+#'   output = c("a.mp3", "b.mp3")
+#' )
+#' # run = FALSE compiles one command per job without calling FFmpeg
+#' ffm_batch(jobs, run = FALSE, .f = function(input, output, ...) {
+#'   ffm_files(input, output) |>
+#'     ffm_drop("video") |>
+#'     ffm_codec(audio = "libmp3lame")
+#' })
+#' @export
+ffm_batch <- function(jobs, .f, ..., run = TRUE, parallel = FALSE,
+                      verify = NULL, progress = FALSE, manifest = FALSE,
+                      checksums = FALSE) {
+
+  if (!is.data.frame(jobs)) {
+    cli::cli_abort("{.arg jobs} must be a data frame with one row per job.")
+  }
+  if (nrow(jobs) == 0) {
+    cli::cli_abort("{.arg jobs} must have at least one row.")
+  }
+  if (!is.function(.f)) {
+    cli::cli_abort("{.arg .f} must be a function returning an ffm pipeline.")
+  }
+  rlang::check_bool(run)
+  rlang::check_bool(parallel)
+  rlang::check_bool(progress)
+  rlang::check_bool(manifest)
+  rlang::check_bool(checksums)
+  if (!is.null(verify) && !is.function(verify) &&
+      !(rlang::is_list(verify) && rlang::is_named(verify))) {
+    cli::cli_abort(
+      "{.arg verify} must be a named list or a function of the job columns."
+    )
+  }
+  # Refuse a bad limit here, before either branch dispatches a job. It is read
+  # at the spawn site otherwise -- inside run_one()'s tryCatch, which turns the
+  # refusal into a bare `success = FALSE` -- and not at all when `run = FALSE`
+  # or when no binary is found. Resolving up front makes one condition, in the
+  # process that can name the caller, on both branches.
+  resolve_timeout()
+  if (parallel) {
+    rlang::check_installed("furrr", reason = "for parallel batch processing.")
+    warn_if_sequential_plan()
+  }
+
+  # Build one pipeline per row (columns passed to .f by name, pmap-style).
+  pipelines <- if (parallel) {
+    # carry_options() is what makes the worker's build match the parent's: an
+    # nvenc pipeline asks has_hardware_encoder(), which reads the caller's encoder
+    # override. Without it the worker reads that override as unset and spawns
+    # FFmpeg to ask -- or picks a different encoder than the parent would.
+    furrr::future_pmap(jobs, carry_options(.f), ...)
+  } else {
+    purrr::pmap(jobs, .f, ...)
+  }
+
+  not_ffm <- !vapply(pipelines, inherits, logical(1), what = "tidymedia_ffm")
+  if (any(not_ffm)) {
+    cli::cli_abort(c(
+      "{.arg .f} must return an ffm pipeline for every job.",
+      "x" = "Job{?s} {.val {which(not_ffm)}} returned something else."
+    ))
+  }
+
+  out <- tibble::as_tibble(jobs)
+  commands <- vapply(pipelines, ffm_compile, character(1))
+  out$command <- commands
+
+  # Resolve the per-job verify specs up front (before any encode runs) so an
+  # invalid or empty spec fails fast rather than after wasting the batch. Only a
+  # run verifies, so a dry run resolves none.
+  specs <- if (run && !is.null(verify)) resolve_batch_verify(verify, jobs, ...)
+
+  # Two jobs writing one file (M125). Not gated on `run`: the table a dry run
+  # accepts is the table the caller will run. Below every refusal above, so each
+  # still reports first, and above the first job. A task verb reaching this line
+  # has already refused the same table at its own front door; this is the check
+  # for a caller whose own `.f` builds the pipelines. Outputs that write no file
+  # are left out (writes_no_file()), and the rest are compared as exact strings.
+  outputs <- vapply(pipelines, `[[`, character(1), "output")
+  check_distinct_outputs(
+    outputs[!vapply(pipelines, writes_no_file, logical(1))],
+    "Two or more pipelines returned by {.arg .f} write to the same output path.",
+    "Give each job its own {.field output}. An output that writes no file \\
+     ({.code -}, a {.code pipe:} URL, or one after {.code -f null}) may repeat."
+  )
+
+  if (run) {
+    # Execute each pipeline's argument vector (shell-free, hostile-path-safe;
+    # M06) rather than the display string. ffm_run()'s result carries a
+    # "status" attribute on a non-zero exit; a hard failure throws.
+    # Each job reports whether it succeeded AND whether the limit is why it did
+    # not. A bare logical cannot carry the second fact: `success` is a
+    # documented logical column, and an attribute on it would not survive
+    # unlist() off the parallel workers or the preallocated assignment in
+    # run_with_progress().
+    run_one <- function(pipeline) {
+      res <- tryCatch(ffm_run(pipeline), error = function(e) e)
+      list(
+        success = !inherits(res, "error") && is.null(attr(res, "status")),
+        timed_out = inherits(res, "tidymedia_timeout")
+      )
+    }
+    results <- if (parallel) {
+      # furrr drives its own progress reporting over the parallel workers.
+      furrr::future_map(pipelines, carry_options(run_one),
+                        .progress = progress)
+    } else if (progress) {
+      run_with_progress(pipelines, run_one)
+    } else {
+      lapply(pipelines, run_one)
+    }
+    out$success <- vapply(results, `[[`, logical(1), "success")
+    ran_out <- sum(vapply(results, `[[`, logical(1), "timed_out"))
+    verify_out <- 0L
+
+    # Verification records outcomes (never aborts): collapse each job's checks
+    # to a single logical, NA for jobs that did not run cleanly. A verify error
+    # (e.g. an output that vanished) is recorded as NA rather than aborting.
+    if (!is.null(specs)) {
+      out$verified <- vapply(seq_along(pipelines), function(i) {
+        if (!isTRUE(out$success[[i]])) return(NA)
+        tryCatch(
+          all(do.call(
+            verify_media, c(list(file = pipelines[[i]]$output), specs[[i]])
+          )$pass),
+          # verify_media() re-raises a timeout rather than absorbing it (D048),
+          # and this handler is what would put it back to sleep: without the
+          # count, a successful encode followed by a hung probe reports an
+          # unverified row and gives no reason.
+          error = function(e) {
+            if (inherits(e, "tidymedia_timeout")) verify_out <<- verify_out + 1L
+            NA
+          }
+        )
+      }, logical(1))
+    }
+
+    # The one place a batch says the limit was reached. Every other failure
+    # keeps today's silent `success = FALSE` -- that is the contract each
+    # _batch verb's @return documents -- but a bounded hang has to be audible,
+    # because a timed-out row and a row FFmpeg rejected look identical in the
+    # results tibble (M70; D048's third path).
+    if (ran_out || verify_out) {
+      cli::cli_warn(
+        c(
+          "The limit was reached during this batch.",
+          if (ran_out) c("x" = "{ran_out} job{?s} timed out and did not \\
+                                run to completion."),
+          if (verify_out) c("x" = "{verify_out} verification{?s} timed out."),
+          "i" = "Raise or remove {.code options(tidymedia.timeout = )}; \\
+                 {.code 0} means no limit."
+        ),
+        class = "tidymedia_batch_timeout"
+      )
+    }
+
+    # Provenance manifest (opt-in): capture tool versions once and assemble a
+    # per-job record, attached to the result for ffm_manifest() to read.
+    if (manifest) {
+      attr(out, "manifest") <- build_manifest(
+        pipelines, out$command, tool_versions(), checksums
+      )
+    }
+  }
+
+  out
+}
+
+# check_distinct_outputs() ------------------------------------------------
+
+# The abort behind ffm_batch()'s collision refusal and the task verbs'
+# repeated-output checks, which reach it through reject_duplicate_outputs() or
+# directly (M125). sample_frames_batch() keeps its own pattern-level abort, and
+# reject_duplicate_inputs() its own. The paths are compared as exact
+# strings. `problem` and `hint` are the two lines that differ by caller -- a
+# jobs table, `segment_video()`'s `outfiles`, the pipelines `.f` returned -- so
+# each names the destination the caller actually wrote. They are constant cli
+# templates; the paths reach the message only through `{.val}`. Only text,
+# non-NA paths are compared: an output that is not a string is left to the
+# builder's own type refusal (ffm_files()) rather than reported as a collision.
+check_distinct_outputs <- function(paths, problem, hint,
+                                   call = rlang::caller_env()) {
+  if (!is.character(paths)) return(invisible(paths))
+  dupes <- unique(paths[duplicated(paths) & !is.na(paths)])
+  if (length(dupes) > 0) {
+    cli::cli_abort(c(
+      problem,
+      "x" = "Colliding output{?s}: {.val {dupes}}.",
+      "i" = hint
+    ), call = call)
+  }
+  invisible(paths)
+}
+
+# writes_no_file() --------------------------------------------------------
+
+# Whether a pipeline's output is somewhere no file is written, so two jobs
+# sharing it overwrite nothing (M125). Three shapes: FFmpeg's standard output
+# (`-`), a `pipe:` URL, and the null muxer -- `null` as the token after the LAST
+# `-f` among the output options. The options are read as the whitespace tokens
+# ffm_groups() splits them into, so `-f null` counts whether it arrived as one
+# string or two, and a later `-f mp4` overrides it.
+writes_no_file <- function(pipeline) {
+  output <- pipeline$output
+  if (identical(output, "-") || startsWith(output, "pipe:")) return(TRUE)
+  tokens <- unlist(strsplit(trimws(pipeline$output_opts), "[[:space:]]+"),
+                   use.names = FALSE)
+  f <- which(tokens == "-f")
+  if (length(f) == 0) return(FALSE)
+  last <- f[[length(f)]]
+  last < length(tokens) && identical(tokens[[last + 1L]], "null")
+}
+
+# warn_if_sequential_plan() -----------------------------------------------
+
+# furrr honors the active future plan silently: with the default sequential
+# plan, `parallel = TRUE` runs one job at a time with no speedup. Warn loudly
+# (regardless of `run`) rather than let that misconfiguration pass unnoticed.
+# Called only after check_installed("furrr"), which imports future, so
+# future::plan() is available here. Isolated for direct testing without
+# driving furrr.
+warn_if_sequential_plan <- function() {
+  if (inherits(future::plan(), "sequential")) {
+    cli::cli_warn(c(
+      "{.arg parallel} is {.val {TRUE}} but the active {.pkg future} plan \\
+       is {.val sequential}.",
+      "!" = "Jobs will run one at a time with no speedup.",
+      "i" = "Set a parallel plan first, e.g. \\
+             {.run future::plan(future::multisession)}."
+    ), class = "tidymedia_sequential_plan")
+  }
+}
+
+# run_with_progress() -----------------------------------------------------
+
+# Run the pipelines sequentially behind a cli progress bar, returning one
+# per-job record (same contract as the plain lapply path). The bar is owned by
+# this function's frame, so it is cleaned up on return; cli renders a no-op in
+# non-interactive sessions, so this never errors under `R CMD check`.
+run_with_progress <- function(pipelines, run_one) {
+  n <- length(pipelines)
+  results <- vector("list", n)
+  cli::cli_progress_bar("Running FFmpeg jobs", total = n)
+  for (i in seq_len(n)) {
+    results[[i]] <- run_one(pipelines[[i]])
+    cli::cli_progress_update()
+  }
+  cli::cli_progress_done()
+  results
+}
+
+# resolve_batch_verify() --------------------------------------------------
+
+# Turn a batch `verify` argument into one spec (named list) per job: a bare
+# named list is reused for every job; a function is applied to the job columns
+# pmap-style (mirroring .f), forwarding `...`. Each resolved spec must itself be
+# a named list.
+resolve_batch_verify <- function(verify, jobs, ...) {
+  specs <- if (is.function(verify)) {
+    purrr::pmap(jobs, verify, ...)
+  } else {
+    rep(list(verify), nrow(jobs))
+  }
+  # Each spec must be a non-empty named list; an empty spec verifies nothing and
+  # would otherwise abort inside verify_media(), breaking the never-abort
+  # contract, so reject it here (before running) with a clear message.
+  ok <- vapply(
+    specs,
+    function(s) rlang::is_list(s) && length(s) > 0 && rlang::is_named(s),
+    logical(1)
+  )
+  if (!all(ok)) {
+    cli::cli_abort(c(
+      "Each {.arg verify} spec must be a non-empty named list of properties.",
+      "x" = "Job{?s} {.val {which(!ok)}} produced an invalid spec."
+    ))
+  }
+  specs
+}

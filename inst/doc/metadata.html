@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Media metadata as tibbles</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Media metadata as tibbles</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tidymedia)</span></code></pre></div>
+<p>tidymedia reads media metadata into tibbles. So the metadata of a
+whole folder becomes a data frame that you can filter, join and
+summarize.</p>
+<p>Two programs read the metadata:</p>
+<ul>
+<li>FFprobe, used by the <code>probe_*()</code> functions, reads facts
+about the <a href="tidymedia.html#glossary">container</a> and each <a href="tidymedia.html#glossary">stream</a>.</li>
+<li>MediaInfo, used by the <code>mediainfo_*()</code> and
+<code>get_*()</code> functions, reads a larger set of fields, grouped in
+a different way.</li>
+</ul>
+<p>You need the program installed to use its functions. The <a href="https://github.com/jmgirard/tidymedia">README</a> shows how to
+install them. The examples use the sample clip that comes with the
+package:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>video <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;sample.mp4&quot;</span>, <span class="at">package =</span> <span class="st">&quot;tidymedia&quot;</span>)</span></code></pre></div>
+<div id="which-reader" class="section level2">
+<h2>Which reader?</h2>
+<p>The readers differ in the program they use and in what they return.
+Choose by what you need back:</p>
+<table>
+<colgroup>
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Functions</th>
+<th>Program</th>
+<th>Returns</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>probe_all()</code>, <code>probe_container()</code>,
+<code>probe_streams()</code>, <code>probe_video()</code>,
+<code>probe_audio()</code></td>
+<td>FFprobe</td>
+<td>tibbles, with rows for the file and for each stream</td>
+<td>you want the file and stream facts as a data frame</td>
+</tr>
+<tr class="even">
+<td><code>mediainfo_query()</code>,
+<code>mediainfo_template()</code></td>
+<td>MediaInfo</td>
+<td>a tibble with one row per file</td>
+<td>you want MediaInfo’s larger set of fields as a data frame</td>
+</tr>
+<tr class="odd">
+<td><code>mediainfo_parameter()</code></td>
+<td>MediaInfo</td>
+<td>one value per file</td>
+<td>you want one MediaInfo field for several files</td>
+</tr>
+<tr class="even">
+<td><code>get_duration()</code>, <code>get_frame_rate()</code>,
+<code>get_width()</code>, <code>get_height()</code>,
+<code>get_sample_rate()</code></td>
+<td>MediaInfo</td>
+<td>one number per file</td>
+<td>you want one common field without naming a MediaInfo section</td>
+</tr>
+</tbody>
+</table>
+<p>Some facts, such as the width of the picture, come from both
+<code>probe_video()</code> and <code>get_width()</code>. Then choose by
+the shape you want back and the program you have.</p>
+</div>
+<div id="probing-with-ffprobe" class="section level2">
+<h2>Probing with FFprobe</h2>
+<p><code>probe_all()</code> returns a list of two tibbles.
+<code>container</code> has one row for each file, and
+<code>streams</code> has one row for each stream. Both start with a
+<code>file</code> column, so the results for several files stack into
+one table.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">probe_all</span>(video)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>info<span class="sc">$</span>container</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 16</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt;   file              filename nb_streams nb_programs nb_stream_groups format_name</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;             &lt;chr&gt;         &lt;int&gt;       &lt;int&gt;            &lt;int&gt; &lt;chr&gt;      </span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; 1 /private/var/fol… /privat…          2           0                0 mov,mp4,m4…</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; # ℹ 10 more variables: format_long_name &lt;chr&gt;, start_time &lt;dbl&gt;,</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; #   duration &lt;dbl&gt;, size &lt;int&gt;, bit_rate &lt;int&gt;, probe_score &lt;int&gt;,</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; #   `TAG:major_brand` &lt;chr&gt;, `TAG:minor_version` &lt;int&gt;,</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; #   `TAG:compatible_brands` &lt;chr&gt;, `TAG:encoder` &lt;chr&gt;</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>info<span class="sc">$</span>streams</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 69</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt;   file      index codec_name codec_long_name profile codec_type codec_tag_string</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;     &lt;int&gt; &lt;chr&gt;      &lt;chr&gt;           &lt;chr&gt;   &lt;chr&gt;      &lt;chr&gt;           </span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; 1 /private…     0 h264       H.264 / AVC / … High    video      avc1            </span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; 2 /private…     1 aac        AAC (Advanced … LC      audio      mp4a            </span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; # ℹ 62 more variables: codec_tag &lt;chr&gt;, mime_codec_string &lt;chr&gt;, width &lt;int&gt;,</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; #   height &lt;int&gt;, coded_width &lt;int&gt;, coded_height &lt;int&gt;, has_b_frames &lt;int&gt;,</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; #   sample_aspect_ratio &lt;chr&gt;, display_aspect_ratio &lt;chr&gt;, pix_fmt &lt;chr&gt;,</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; #   level &lt;int&gt;, color_range &lt;chr&gt;, color_space &lt;chr&gt;, color_transfer &lt;chr&gt;,</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; #   color_primaries &lt;chr&gt;, chroma_location &lt;chr&gt;, field_order &lt;chr&gt;,</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; #   is_avc &lt;chr&gt;, nal_length_size &lt;int&gt;, id &lt;chr&gt;, r_frame_rate &lt;chr&gt;,</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; #   avg_frame_rate &lt;chr&gt;, time_base &lt;chr&gt;, start_pts &lt;int&gt;, start_time &lt;dbl&gt;, …</span></span></code></pre></div>
+<p>The other <code>probe_*()</code> functions return one part of that
+result. You can give them the result of <code>probe_all()</code>, so
+FFprobe does not read the file again. Or you can give them a file with
+<code>infile</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Use the probe result, so the file is not read again</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">probe_video</span>(info)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 69</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;   file      index codec_name codec_long_name profile codec_type codec_tag_string</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;     &lt;int&gt; &lt;chr&gt;      &lt;chr&gt;           &lt;chr&gt;   &lt;chr&gt;      &lt;chr&gt;           </span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; 1 /private…     0 h264       H.264 / AVC / … High    video      avc1            </span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; # ℹ 62 more variables: codec_tag &lt;chr&gt;, mime_codec_string &lt;chr&gt;, width &lt;int&gt;,</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; #   height &lt;int&gt;, coded_width &lt;int&gt;, coded_height &lt;int&gt;, has_b_frames &lt;int&gt;,</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; #   sample_aspect_ratio &lt;chr&gt;, display_aspect_ratio &lt;chr&gt;, pix_fmt &lt;chr&gt;,</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; #   level &lt;int&gt;, color_range &lt;chr&gt;, color_space &lt;chr&gt;, color_transfer &lt;chr&gt;,</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; #   color_primaries &lt;chr&gt;, chroma_location &lt;chr&gt;, field_order &lt;chr&gt;,</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; #   is_avc &lt;chr&gt;, nal_length_size &lt;int&gt;, id &lt;chr&gt;, r_frame_rate &lt;chr&gt;,</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; #   avg_frame_rate &lt;chr&gt;, time_base &lt;chr&gt;, start_pts &lt;int&gt;, start_time &lt;dbl&gt;, …</span></span></code></pre></div>
+<p>By default, <code>typed = TRUE</code> gives number columns a number
+type. With <code>typed = FALSE</code>, every column is a string. FFprobe
+reports a <a href="tidymedia.html#glossary">frame rate</a> as a fraction
+such as <code>&quot;30000/1001&quot;</code>. The fraction stays a string, even
+with <code>typed = TRUE</code>.</p>
+</div>
+<div id="querying-with-mediainfo" class="section level2">
+<h2>Querying with MediaInfo</h2>
+<p>MediaInfo groups its fields in sections, such as
+<code>General</code>, <code>Video</code> and <code>Audio</code>.
+<code>mediainfo_query()</code> reads several fields from one section
+into a tibble:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">mediainfo_query</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  video,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">section =</span> <span class="st">&quot;Video&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">parameters =</span> <span class="fu">c</span>(<span class="st">&quot;Width&quot;</span>, <span class="st">&quot;Height&quot;</span>, <span class="st">&quot;FrameRate&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 4</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;   file                                                    Width Height FrameRate</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;                                                   &lt;int&gt;  &lt;int&gt;     &lt;dbl&gt;</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; 1 /private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn…   320    240        15</span></span></code></pre></div>
+<p><code>mediainfo_template()</code> reads a whole set of fields at
+once. The package has two templates, <code>&quot;brief&quot;</code> and
+<code>&quot;extended&quot;</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">mediainfo_template</span>(video, <span class="at">template =</span> <span class="st">&quot;brief&quot;</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 12</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt;   file           complete_name format file_size duration width height frame_rate</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;          &lt;chr&gt;         &lt;chr&gt;      &lt;int&gt;    &lt;int&gt; &lt;int&gt;  &lt;int&gt;      &lt;dbl&gt;</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; 1 /private/var/… /private/var… MPEG-4     17725     1000   320    240         15</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; # ℹ 4 more variables: video_bit_rate &lt;int&gt;, channels &lt;int&gt;,</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; #   sampling_rate &lt;int&gt;, audio_bit_rate &lt;int&gt;</span></span></code></pre></div>
+<p>For one value, use the <code>get_*()</code> functions:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">get_duration</span>(video, <span class="at">unit =</span> <span class="st">&quot;sec&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">get_width</span>(video)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; [1] 320</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="fu">get_height</span>(video)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [1] 240</span></span></code></pre></div>
+</div>
+<div id="batching-over-many-files" class="section level2">
+<h2>Batching over many files</h2>
+<p>Each reader takes a vector of files, so you do not need a loop to
+read a whole folder. The <code>probe_*()</code>,
+<code>mediainfo_query()</code> and <code>mediainfo_template()</code>
+functions mark each row with its <code>file</code>. The
+<code>get_*()</code> functions return one value per file, in the order
+given.</p>
+<p><code>ffm_jobs()</code> lists the video files in a folder, in all the
+formats it knows. To list only one format, add
+<code>extension = &quot;mp4&quot;</code>. If the folder has no such files,
+<code>ffm_jobs()</code> stops with an error:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>files <span class="ot">&lt;-</span> <span class="fu">ffm_jobs</span>(<span class="st">&quot;my/videos&quot;</span>, <span class="at">type =</span> <span class="st">&quot;video&quot;</span>)<span class="sc">$</span>input</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">probe_all</span>(files)<span class="sc">$</span>container</span></code></pre></div>
+<p>A file that cannot be read gives a row of <code>NA</code> values and
+a warning. The other files are still read.</p>
+<p>For a large folder, add <code>parallel = TRUE</code>. The files are
+then read in parallel with <a href="https://furrr.futureverse.org/">furrr</a>. Each
+<code>probe_*()</code> function takes this argument. On the functions
+other than <code>probe_all()</code>, it has an effect only when you pass
+<code>infile</code>.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">probe_all</span>(files, <span class="at">parallel =</span> <span class="cn">TRUE</span>)<span class="sc">$</span>container</span></code></pre></div>
+<p>The files are read in parallel only if you set a <a href="https://future.futureverse.org/">future</a> plan. With no plan,
+they are read one at a time, and R gives a warning that says so.
+<code>vignette(&quot;batch&quot;)</code> shows how to set a plan.</p>
+</div>
+<div id="where-to-next" class="section level2">
+<h2>Where to next</h2>
+<ul>
+<li><code>vignette(&quot;workflow&quot;)</code> shows a full research
+example.</li>
+<li><code>vignette(&quot;tidymedia&quot;)</code> explains the task functions and
+the pipeline functions.</li>
+<li><code>vignette(&quot;batch&quot;)</code> shows how to run a task function over
+many files.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

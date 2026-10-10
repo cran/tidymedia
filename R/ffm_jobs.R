@@ -1,0 +1,213 @@
+# ffm_jobs() --------------------------------------------------------------
+
+#' Build a Jobs Table From a Directory
+#'
+#' List the media files in a directory and return them as a jobs table for
+#' [ffm_batch()]. The table is a tibble with one row per file and an
+#' \code{input} column of full paths. Start a batch here, instead of with your
+#' own \code{list.files()} call.
+#'
+#' The table has only the \code{input} column. [ffm_batch()] passes every column
+#' of the jobs table to \code{.f} by name. So if \code{.f} has no argument for a
+#' column, and no \code{...} argument, the batch stops with R's "unused
+#' argument" error.
+#'
+#' Add the columns your pipeline needs with the usual data-frame tools. Some
+#' \code{*_batch()} task functions need an \code{output} column. Others need
+#' columns for their task, such as \code{start} and \code{end}. The examples
+#' below make an \code{output} column from \code{input}.
+#'
+#' [crop_video_batch()] and [extract_audio_batch()] handle the other columns of
+#' the table as follows:
+#' \itemize{
+#'   \item They read a column named like one of their per-row arguments in
+#'     place of that argument, row by row. Each help page lists these
+#'     arguments. Examples are a \code{width} column in [crop_video_batch()]
+#'     and an \code{audio_codec} column in [extract_audio_batch()].
+#'   \item They replace a column named like one that [ffm_batch()] adds. For
+#'     example, the compiled command replaces a \code{command} column. The
+#'     Value section of [ffm_batch()] lists the added columns.
+#'   \item They return every other column unchanged.
+#' }
+#'
+#' @param directory A single string naming an existing directory.
+#' @param type The media category to list, one of \code{"video"},
+#'   \code{"audio"} or \code{"image"}. You must give it, because it has no
+#'   default.
+#' @param extension An optional character vector of file extensions narrowing
+#'   the search within \code{type}, with or without a leading dot
+#'   (\code{"mp4"} and \code{".mp4"} both work). Each must be one of the
+#'   extensions \code{type} covers, and the error message lists them.
+#'   \code{NULL} (the default) lists every extension of that type.
+#' @param recursive A logical: descend into subdirectories (\code{TRUE}) or
+#'   list only the top level (\code{FALSE}, default).
+#' @return A [tibble][tibble::tibble-package] with one row per matching file
+#'   and one character column, \code{input}, with each file's full path. Files
+#'   whose names start with a dot are left out. Rows are in the order
+#'   \code{\link[base]{list.files}} returns them.
+#'
+#'   Every row is a path that exists and is not a directory. A subdirectory
+#'   whose own name ends in a listed extension is never a row. On macOS and
+#'   Linux, a symbolic link whose target is gone is never a row either.
+#'   Windows reports such a link as existing, so there it can still be a row.
+#'   The call gives an error, instead of zero rows, when nothing matches. With
+#'   \code{recursive = TRUE} the search follows a symbolic link to a directory,
+#'   so a row can name a file outside \code{directory}.
+#'
+#'   The scanned extensions include \code{.mka} as audio and \code{.ts} as
+#'   video. [separate_audio_video()] recommends \code{.mka} or \code{.m4a} for
+#'   multi-track audio, and this function reads both as audio, so it lists a
+#'   folder of that output. Not every container that can hold several audio
+#'   streams is audio here. \code{.ts}, like \code{.mp4} and \code{.mkv}, is
+#'   video, so multi-track audio written to one of those is a row under
+#'   \code{type = "video"}. The name \code{.ts} also belongs to TypeScript
+#'   source files, and this function reads names rather than file contents. A
+#'   folder of TypeScript sources therefore comes back as video rows when you
+#'   ask for \code{type = "video"}.
+#' @family pipeline functions
+#' @seealso [ffm_batch()], which consumes the returned table.
+#' @examples
+#' folder <- system.file("extdata", package = "tidymedia")
+#' jobs <- ffm_jobs(folder, type = "video")
+#' jobs
+#'
+#' # Derive an output column, then hand the whole table to ffm_batch().
+#' # Two inputs sharing a name (a.mp4 and a.mkv) would derive one output here;
+#' # ffm_batch() refuses jobs that share an output before any of them runs.
+#' jobs$output <- file.path(tempdir(), paste0(
+#'   tools::file_path_sans_ext(basename(jobs$input)), ".mp3"
+#' ))
+#' ffm_batch(jobs, run = FALSE, .f = function(input, output, ...) {
+#'   ffm_files(input, output) |> ffm_drop("video")
+#' })
+#' @export
+ffm_jobs <- function(directory, type, extension = NULL, recursive = FALSE) {
+  # `type` has no default because any default would be one of the three media
+  # types (D079).
+  rlang::check_required(type)
+  tm_ffm_jobs(
+    directory = directory, type = type, extension = extension,
+    recursive = recursive, call = rlang::current_env()
+  )
+}
+
+# tm_ffm_jobs() -----------------------------------------------------------
+
+# The body, blamed on whichever front door called it. D087: `call` is threaded
+# through an internal implementation and never published as an exported formal.
+# `type` is checked for presence in the wrapper, at the front door whose frame
+# the refusal names.
+tm_ffm_jobs <- function(directory, type, extension, recursive, call) {
+  rlang::check_string(directory, arg = "directory", call = call)
+  rlang::check_bool(recursive, arg = "recursive", call = call)
+  # check_string() before arg_match(): arg_match() reduces a multi-element
+  # `arg` to its first element without complaint whenever `arg` is setequal()
+  # to `values` — any permutation of the full set, not only the identical one —
+  # so a multi-value `type` would otherwise be accepted silently.
+  rlang::check_string(type, arg = "type", call = call)
+  type <- rlang::arg_match(type, media_types(), error_call = call)
+
+  if (!dir.exists(directory)) {
+    cli::cli_abort(
+      "{.arg directory} does not name an existing directory: {.file {directory}}.",
+      call = call
+    )
+  }
+
+  wanted <- media_extensions(type)
+  if (!is.null(extension)) {
+    if (!rlang::is_character(extension) || length(extension) == 0 ||
+        anyNA(extension) || !all(nzchar(extension))) {
+      cli::cli_abort(
+        "{.arg extension} must be a character vector of one or more file extensions.",
+        call = call
+      )
+    }
+    given <- tolower(sub("^\\.", "", extension))
+    unknown <- setdiff(given, wanted)
+    if (length(unknown) > 0) {
+      cli::cli_abort(c(
+        "{.arg extension} must name {type} extensions.",
+        "x" = "{.val {unknown}} {?is not one of them/are not among them}.",
+        "i" = "Accepted for this type: {.val {wanted}}."
+      ), call = call)
+    }
+    wanted <- unique(given)
+  }
+
+  pattern <- paste0("\\.(", paste(wanted, collapse = "|"), ")$")
+  files <- list.files(
+    directory, pattern = pattern, full.names = TRUE,
+    recursive = recursive, ignore.case = TRUE
+  )
+  # list.files() yields names, not readable files: a subdirectory whose own
+  # name ends in a listed extension (when `recursive = FALSE`), and a symbolic
+  # link whose target is gone. Keep only what is both there and not a
+  # directory, rather than subtracting the non-file shapes one at a time --
+  # file.exists() follows links, so a dangling one is already FALSE, and it is
+  # also what keeps normalizePath() from passing an unresolvable path through
+  # unchanged. Dropping directories is additionally what makes
+  # `recursive = TRUE` a superset of `recursive = FALSE` rather than a
+  # different set (list.files(recursive = TRUE) omits directories already).
+  files <- files[file.exists(files) & !dir.exists(files)]
+  if (length(files) == 0) {
+    scope <- if (recursive) " or its subdirectories" else ""
+    bullets <- c(
+      "No {type} files were found in {.file {directory}}{scope}.",
+      "i" = "Looked for these extensions: {.val {wanted}}."
+    )
+    if (is.null(extension)) {
+      # Only the caller who did not narrow the search can be looking for a
+      # container these lists do not carry, and that caller is the one the
+      # closed lists (M137-1) send to list.files(). A caller who passed
+      # `extension` chose the scanned set themselves, so naming the escape
+      # hatch would answer a question they did not ask.
+      bullets <- c(
+        bullets,
+        "i" = "To reach a file type that is not listed, use {.fn list.files} instead."
+      )
+    }
+    cli::cli_abort(bullets, call = call)
+  }
+
+  tibble::tibble(
+    input = normalizePath(files, winslash = "/", mustWork = FALSE)
+  )
+}
+
+# media_types() / media_extensions() --------------------------------------
+
+# The closed vocabulary `type` ranges over, and the extensions each category
+# covers. Closed by choice (GP1/D001): a fixed set is what makes the "type
+# outside the accepted set" and "extension outside the type" refusals name what
+# they accept. A caller with a container outside these lists uses list.files()
+# directly, as they did before this export existed.
+#
+# What admits a container to these lists (M137): the package writes it, or names
+# it in its own diagnostics. `mka` and `ts` were both added under that rule --
+# `multi_audio_extensions` (R/ffmpeg.R) names each of them as a container that
+# holds several audio streams, and separate_audio_video() recommends `.mka` by
+# name, so a folder of the package's own output was being refused by the
+# package's own scanner. The rule is deliberately narrower than closing the
+# lists over the extension families FFmpeg's muxers and demuxers declare, which
+# crosses media types (it puts `mka` in video and `mov` in audio).
+#
+# Which vector each one joined is decided by what a caller asks for, not by what
+# the container can hold -- `multi_audio_extensions` is a capacity list, and
+# five of its nine members are video containers. `mka` is Matroska's audio-only name,
+# so it is audio. `ts` is MPEG-TS, which ordinarily carries a program a caller
+# wants back as video, so it is video, alongside its `mts` and `m2ts` siblings
+# that were already there. A caller who wrote multi-track audio to `.ts` reaches
+# it with `type = "video"`, which is what the @return paragraph discloses.
+media_types <- function() c("video", "audio", "image")
+
+media_extensions <- function(type) {
+  switch(
+    type,
+    video = c("mp4", "mov", "mkv", "avi", "m4v", "webm", "mpg", "mpeg",
+              "wmv", "flv", "mts", "m2ts", "ts"),
+    audio = c("wav", "mp3", "m4a", "aac", "flac", "ogg", "oga", "opus",
+              "wma", "aiff", "aif", "mka"),
+    image = c("png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp")
+  )
+}

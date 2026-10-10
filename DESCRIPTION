@@ -1,0 +1,43 @@
+Package: tidymedia
+Title: Media File Preprocessing and Metadata for the 'tidyverse'
+Version: 0.2.1
+Authors@R: 
+    person(given = "Jeffrey",
+           family = "Girard",
+           role = c("aut", "cre"),
+           email = "me@jmgirard.com",
+           comment = c(ORCID = "0000-0002-7359-3746"))
+Description: Batch preprocessing and metadata extraction for audio,
+    video and image files, built on the command-line programs 'FFmpeg'
+    (<https://ffmpeg.org/>) and 'MediaInfo'
+    (<https://mediaarea.net/en/MediaInfo>). Trim, crop, scale, convert and
+    standardize files one at a time or across a whole directory, and read
+    container and stream metadata back as tibbles for use with the
+    'tidyverse'.
+License: GPL-3
+URL: https://github.com/jmgirard/tidymedia,
+        https://jmgirard.github.io/tidymedia/
+BugReports: https://github.com/jmgirard/tidymedia/issues
+Depends: R (>= 4.1.0)
+Imports: archive (>= 1.1.1), cli (>= 3.4.0), digest (>= 0.6.37), dplyr
+        (>= 1.1.0), glue (>= 1.6.2), purrr (>= 1.0.0), rappdirs (>=
+        0.3.3), rlang (>= 1.2.0), tibble (>= 3.1.4), tools, utils,
+        withr (>= 2.5.0)
+Suggests: furrr (>= 0.3.0), future (>= 1.30.0), knitr (>= 1.40),
+        rmarkdown (>= 2.16), roxygen2 (>= 7.2.0), spelling (>= 2.2),
+        testthat (>= 3.0.0)
+SystemRequirements: FFmpeg (https://ffmpeg.org/), MediaInfo
+        (https://mediaarea.net/en/MediaInfo)
+VignetteBuilder: knitr
+Encoding: UTF-8
+Language: en-US
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
+Config/Needs/website: pkgdown
+NeedsCompilation: no
+Packaged: 2026-09-29 16:06:56 UTC; jmgirard
+Author: Jeffrey Girard [aut, cre] (ORCID:
+    <https://orcid.org/0000-0002-7359-3746>)
+Maintainer: Jeffrey Girard <me@jmgirard.com>
+Repository: CRAN
+Date/Publication: 2026-10-10 10:30:02 UTC

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>A research preprocessing workflow</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">A research preprocessing workflow</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tidymedia)</span></code></pre></div>
+<p>This page follows one research project from raw recordings to shared
+files. The study records conversations between two people, with one
+camera on each person. The recordings need the same steps before coding
+and sound analysis.</p>
+<p>tidymedia suits this job. Each step runs the same way on every file,
+and each step gives you a command that you can save and run again.</p>
+<p>Most examples below use <code>run = FALSE</code>. The function then
+returns the FFmpeg command without running it, so you can read what it
+would do. Leave out <code>run = FALSE</code> to process the files.</p>
+<p>Some examples work on a whole folder, so they are shown but not run.
+The others use the short sample clip that comes with the package:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>session <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;sample.mp4&quot;</span>, <span class="at">package =</span> <span class="st">&quot;tidymedia&quot;</span>)</span></code></pre></div>
+<p>Say the study folder has one file for each camera in each
+session:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>jobs <span class="ot">&lt;-</span> <span class="fu">ffm_jobs</span>(<span class="st">&quot;study/raw&quot;</span>, <span class="at">type =</span> <span class="st">&quot;video&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>jobs</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt; # A tibble: 4 × 1</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt;   input</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; 1 /data/study/raw/session01_camA.mp4</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; 2 /data/study/raw/session01_camB.mp4</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; 3 /data/study/raw/session02_camA.mp4</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; 4 /data/study/raw/session02_camB.mp4</span></span></code></pre></div>
+<p><code>ffm_jobs()</code> returns a jobs table for the batch functions.
+It has one row for each file, with the file’s full path in an
+<code>input</code> column. The full path is why the output above shows
+<code>/data/study/raw</code> and not <code>study/raw</code>.</p>
+<p>If the folder has no video files, <code>ffm_jobs()</code> stops with
+an error. The next section adds an <code>output</code> column to the
+table and passes it to a <code>*_batch()</code> function.</p>
+<div id="standardize-the-recordings" class="section level2">
+<h2>1. Standardize the recordings</h2>
+<p>Cameras often differ in picture size, <a href="tidymedia.html#glossary">frame rate</a> and <a href="tidymedia.html#glossary">codec</a>. Those differences make later
+steps harder. <code>standardize_video()</code> <a href="tidymedia.html#glossary">re-encodes</a> a file to one common
+format:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">standardize_video</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  session, <span class="st">&quot;session01_camA_std.mp4&quot;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">width =</span> <span class="dv">1280</span>, <span class="at">height =</span> <span class="dv">720</span>, <span class="at">fps =</span> <span class="dv">30</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">run =</span> <span class="cn">FALSE</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;scale=w=1280:h=720,fps=30\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_std.mp4\&quot;&quot;</span></span></code></pre></div>
+<p>To do the same for the whole folder, use the batch version with the
+jobs table. Each task function has a <code>*_batch()</code> version like
+this one. See <code>vignette(&quot;batch&quot;)</code> for how batches work.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>jobs<span class="sc">$</span>output <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">&quot;/raw/&quot;</span>, <span class="st">&quot;/std/&quot;</span>, jobs<span class="sc">$</span>input)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">standardize_video_batch</span>(jobs, <span class="at">width =</span> <span class="dv">1280</span>, <span class="at">height =</span> <span class="dv">720</span>, <span class="at">fps =</span> <span class="dv">30</span>)</span></code></pre></div>
+<div id="using-video-hardware" class="section level3">
+<h3>Using video hardware</h3>
+<p>Re-encoding a large study on the main processor can be slow.
+Functions that re-encode video, such as <code>standardize_video()</code>
+and <code>format_for_web()</code>, take a <code>hardware</code>
+argument. It moves the work to a <a href="tidymedia.html#glossary">hardware encoder</a>.</p>
+<p>There are two choices. Use <code>&quot;nvenc&quot;</code> for an NVIDIA
+graphics card, with an FFmpeg build that supports nvenc. Use
+<code>&quot;videotoolbox&quot;</code> for Apple hardware on macOS.</p>
+<p>These functions show what your FFmpeg can do.
+<code>ffmpeg_codecs()</code> and <code>ffmpeg_encoders()</code> list its
+codecs and encoders. <code>hardware_encoder()</code> gives the encoder
+name for a codec and a hardware choice.
+<code>has_hardware_encoder()</code> says whether your FFmpeg has that
+encoder:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">ffmpeg_codecs</span>())</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 6 × 8</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt;   name       details           type  decoding encoding intraframe lossy lossless</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;      &lt;chr&gt;             &lt;fct&gt; &lt;lgl&gt;    &lt;lgl&gt;    &lt;lgl&gt;      &lt;lgl&gt; &lt;lgl&gt;   </span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt; 1 012v       Uncompressed 4:2… Video TRUE     FALSE    TRUE       FALSE TRUE    </span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; 2 4xm        4X Movie          Video TRUE     FALSE    FALSE      TRUE  FALSE   </span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; 3 8bps       QuickTime 8BPS v… Video TRUE     FALSE    TRUE       FALSE TRUE    </span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; 4 a64_multi  Multicolor chars… Video FALSE    TRUE     TRUE       TRUE  FALSE   </span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; 5 a64_multi5 Multicolor chars… Video FALSE    TRUE     TRUE       TRUE  FALSE   </span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; 6 aasc       Autodesk RLE      Video TRUE     FALSE    FALSE      FALSE TRUE</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>encoders <span class="ot">&lt;-</span> <span class="fu">ffmpeg_encoders</span>()</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="fu">head</span>(encoders[encoders<span class="sc">$</span>type <span class="sc">==</span> <span class="st">&quot;Video&quot;</span>, <span class="fu">c</span>(<span class="st">&quot;name&quot;</span>, <span class="st">&quot;details&quot;</span>)])</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; # A tibble: 6 × 2</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;   name      details                                                             </span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;     &lt;chr&gt;                                                               </span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; 1 a64multi  Multicolor charset for Commodore 64 (codec a64_multi)               </span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 2 a64multi5 Multicolor charset for Commodore 64, extended with 5th color (colra…</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; 3 alias_pix Alias/Wavefront PIX image                                           </span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; 4 amv       AMV Video                                                           </span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 5 apng      APNG (Animated Portable Network Graphics) image                     </span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; 6 asv1      ASUS V1</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="fu">hardware_encoder</span>(<span class="st">&quot;h264&quot;</span>, <span class="st">&quot;nvenc&quot;</span>)</span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt; [1] &quot;h264_nvenc&quot;</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="fu">hardware_encoder</span>(<span class="st">&quot;h264&quot;</span>, <span class="st">&quot;videotoolbox&quot;</span>)</span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; [1] &quot;h264_videotoolbox&quot;</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="fu">has_hardware_encoder</span>(<span class="st">&quot;h264&quot;</span>, <span class="st">&quot;videotoolbox&quot;</span>)</span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p><code>has_hardware_encoder()</code> checks how FFmpeg was built. A
+<code>TRUE</code> result does not prove that the hardware works. When it
+is <code>TRUE</code>, name that hardware in the batch:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">standardize_video_batch</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  jobs, <span class="at">width =</span> <span class="dv">1280</span>, <span class="at">height =</span> <span class="dv">720</span>, <span class="at">fps =</span> <span class="dv">30</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">hardware =</span> <span class="st">&quot;videotoolbox&quot;</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>)</span></code></pre></div>
+<p>If the hardware you name is not available, the call stops with an
+error. So a shared script never changes the codec without telling you.
+Add <code>fallback = TRUE</code> to use the main processor instead.</p>
+<p>The two choices support different codecs. NVIDIA nvenc supports
+H.264, HEVC and AV1. Apple videotoolbox supports H.264 and HEVC. A codec
+that the hardware does not support is an error that names both.</p>
+<p>A hardware encoder trades some quality for speed. At the same bit
+rate, a hardware encoder gives a picture that is a little worse than the
+software encoder <code>libx264</code> or <code>libx265</code>. So it
+suits previews and bulk conversion, and the software encoder suits a
+copy that you will keep or analyze frame by frame.</p>
+<p>These functions also take a <code>quality</code> argument. It is the
+encoder’s own rate-control value, passed through unchanged.
+<code>libx264</code> and <code>libx265</code> read it as
+<code>-crf</code> (0 to 51). The nvenc encoders read it as
+<code>-cq</code> (0 to 51), and the videotoolbox encoders as
+<code>-q:v</code> (1 to 100). Each scale is its own, so pick the number
+for the encoder you named:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">standardize_video</span>(<span class="st">&quot;raw.mp4&quot;</span>, <span class="st">&quot;std.mp4&quot;</span>, <span class="at">hardware =</span> <span class="st">&quot;videotoolbox&quot;</span>, <span class="at">quality =</span> <span class="dv">60</span>)</span></code></pre></div>
+<p>When <code>fallback = TRUE</code> falls back to software, the value
+is dropped and the message says so. Leave <code>quality</code> as
+<code>NULL</code> to keep the encoder’s own default.</p>
+<p>tidymedia does not do hardware decoding or run filters on a graphics
+card. For those, use the direct command <code>ffmpeg()</code>.</p>
+</div>
+</div>
+<div id="prepare-the-audio" class="section level2">
+<h2>2. Prepare the audio</h2>
+<p>Sound analysis and transcription tools work best with clean audio at
+an even loudness. <code>normalize_audio()</code> sets a file’s loudness
+to a target. Here the target is -23 <a href="tidymedia.html#glossary">LUFS</a>, the level that the EBU R 128
+broadcast standard uses.</p>
+<p>The output of <code>normalize_audio()</code> has one audio <a href="tidymedia.html#glossary">stream</a> and no video. So give it an
+audio file name. An <code>.mp4</code> name would give you a video file
+with sound and no picture:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">normalize_audio</span>(session, <span class="st">&quot;session01_camA_norm.wav&quot;</span>,</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>                <span class="at">target_loudness =</span> <span class="sc">-</span><span class="dv">23</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -map \&quot;0:a:0\&quot; \&quot;session01_camA_norm.wav\&quot;&quot;</span></span></code></pre></div>
+<p>To set the loudness and keep the picture, first write the audio file
+as above. Then use the direct command <code>ffmpeg()</code> to put it
+back with the video.</p>
+<p>A transcription tool needs the audio in its own file.
+<code>convert_audio()</code> converts the audio to the format that the
+output extension names. Here that is a <code>.wav</code> file for a
+speech recognition tool:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">convert_audio</span>(session, <span class="st">&quot;session01_camA.wav&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -q:a 0 -map \&quot;0:a:0\&quot; \&quot;session01_camA.wav\&quot;&quot;</span></span></code></pre></div>
+<p>If you need the audio as it is, <code>extract_audio()</code> copies
+it without converting it. See <code>vignette(&quot;tidymedia&quot;)</code>.</p>
+</div>
+<div id="frames-for-visual-coding" class="section level2">
+<h2>3. Frames for visual coding</h2>
+<p>Coding facial expressions or gestures frame by frame needs still
+images. <code>extract_frame()</code> saves one frame at a given time.
+This is useful for a picture in a coding manual:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">extract_frame</span>(session, <span class="st">&quot;session01_camA_t30.png&quot;</span>, <span class="at">timestamp =</span> <span class="dv">30</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 30 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -avoid_negative_ts make_zero -qmin 1 -q:v 1 -qscale:v 2 -frames:v 1 -huffman optimal \&quot;session01_camA_t30.png\&quot;&quot;</span></span></code></pre></div>
+<p><code>sample_frames()</code> saves frames at a fixed rate, as
+numbered image files. Here it saves one frame per second, for coding by
+hand or by a computer vision tool:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">sample_frames</span>(<span class="st">&quot;session01_camA_std.mp4&quot;</span>, <span class="at">outdir =</span> <span class="st">&quot;frames/session01_camA&quot;</span>,</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>              <span class="at">fps =</span> <span class="dv">1</span>)</span></code></pre></div>
+</div>
+<div id="de-identify-before-sharing" class="section level2">
+<h2>4. De-identify before sharing</h2>
+<p>Before you share recordings with coders, you often must remove
+information that identifies people. Two task functions cover the common
+cases.</p>
+<p><code>strip_metadata()</code> removes the file’s metadata, such as
+the camera model, GPS location and recording time. It does not change
+the audio or the video:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">strip_metadata</span>(session, <span class="st">&quot;session01_camA_clean.mp4&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -map_metadata -1 -map_chapters -1 -fflags +bitexact -map \&quot;0\&quot; \&quot;session01_camA_clean.mp4\&quot;&quot;</span></span></code></pre></div>
+<p><code>anonymize_video()</code> fills one or more rectangles with a
+solid color. It does not find or follow faces. You give the position of
+an area that does not move, such as a name caption on screen. You give
+the areas as a data frame, with one row for each box:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>regions <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="at">x =</span> <span class="dv">16</span>, <span class="at">y =</span> <span class="dv">640</span>, <span class="at">width =</span> <span class="dv">360</span>, <span class="at">height =</span> <span class="dv">64</span>  <span class="co"># lower-left name caption</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>)</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="fu">anonymize_video</span>(session, <span class="st">&quot;session01_camA_deid.mp4&quot;</span>, <span class="at">regions =</span> regions,</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>                <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2,drawbox=x=16:y=640:w=360:h=64:c=black:t=fill\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_deid.mp4\&quot;&quot;</span></span></code></pre></div>
+</div>
+<div id="assemble-and-share" class="section level2">
+<h2>5. Assemble and share</h2>
+<p>If a session was recorded in parts, <code>concatenate_videos()</code>
+joins the parts into one file. The parts must have the same codec, <a href="tidymedia.html#glossary">container</a>, picture size and frame
+rate. Here they do, because step 1 made them the same:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">concatenate_videos</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">&quot;session01_camA_part1.mp4&quot;</span>, <span class="st">&quot;session01_camA_part2.mp4&quot;</span>),</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="st">&quot;session01_camA_full.mp4&quot;</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>)</span></code></pre></div>
+<p>Last, <code>format_for_web()</code> makes an H.264 file that most
+browsers can play. It moves the file’s index to the start, so coders can
+watch it in a browser before it has fully downloaded:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">format_for_web</span>(session, <span class="st">&quot;session01_camA_share.mp4&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 -codec:a aac -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_share.mp4\&quot;&quot;</span></span></code></pre></div>
+</div>
+<div id="reproducibility" class="section level2">
+<h2>Reproducibility</h2>
+<p>Each task function returns the FFmpeg command it used. A batch run
+also keeps these commands, in a <code>command</code> column. Save the
+commands, and you have a full record of how each file was made. You can
+then run the same steps on the next group of recordings.</p>
+<p>The command records what you asked for. A manifest records what
+happened: the FFmpeg version, the time, and checksums of the files. Run
+the batch with <code>manifest = TRUE</code> and read the manifest with
+<code>ffm_manifest()</code>.</p>
+<p>To check that each output has the duration, size and codecs you asked
+for, use <code>verify_media()</code>.
+<code>vignette(&quot;verification&quot;)</code> covers both, and also shows how to
+stop a file that hangs.</p>
+</div>
+<div id="where-to-next" class="section level2">
+<h2>Where to next</h2>
+<ul>
+<li><code>vignette(&quot;batch&quot;)</code> explains the batch functions in more
+detail.</li>
+<li><code>vignette(&quot;metadata&quot;)</code> shows how to read each file’s
+metadata into a tibble.</li>
+<li><code>vignette(&quot;verification&quot;)</code> shows how to check outputs,
+record how files were made and limit run time.</li>
+<li><code>vignette(&quot;tidymedia&quot;)</code> explains the task functions and
+the pipeline functions.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

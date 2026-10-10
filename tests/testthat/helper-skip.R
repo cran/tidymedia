@@ -1,0 +1,181 @@
+# Skip helpers for tests that shell out to external CLIs. Execution tests must
+# skip cleanly on machines (and CI images) where the binary is absent.
+#
+# M118 -- and they must skip on CRAN's own submission check, whose machines are
+# not ours to spend FFmpeg time on. skip_on_cran() skips when NOT_CRAN is set
+# to anything but "true"; when NOT_CRAN is UNSET it skips only if the session is
+# non-interactive, which CRAN's check always is and an RStudio console never is
+# (testthat:::on_cran() is `if (identical(Sys.getenv("NOT_CRAN"), "")) !interactive()
+# else !isTRUE(as.logical(env))`). That second branch is why
+# test-cran-skip-helpers.R asks the unset question only behind
+# skip_if(interactive()). devtools::check() sets it (env_vars in its formals) and
+# r-lib/actions/setup-r@v2 puts it in the CI job env, so the release gate and
+# every push still run these tests -- only CRAN opts out. It goes FIRST in each
+# helper, ahead of the binary question, so the reason reported on CRAN is "On
+# CRAN" whether or not the machine happens to have the binary.
+
+# The combinatorial guard sweeps skip on CRAN too, for a different reason than
+# the binary helpers below: they spawn nothing, so D090's spawn argument does
+# not reach them. What rules them out is time. Measured on 2026-09-18 at 0.2.0,
+# in a CRAN-mode check with no media binaries on the PATH, the three files this
+# helper guards cost 244s of the suite's 327s, and the whole check 6m14s. CRAN
+# flags a check over ten minutes, and its machines are slower than the one that
+# measured this.
+#
+# Each sweep computes its own domain and crosses it with wrong-argument forms,
+# so its cost grows with the export surface while what it proves -- which
+# function a bad argument is blamed on -- is a fact about this package, not
+# about the machine checking it. Every GitHub Actions job sets NOT_CRAN=true, so
+# all three still run in full on every push; only CRAN opts out. Call this at
+# the TOP LEVEL of the file, above the first test_that(), so the domain is never
+# enumerated on CRAN's machine.
+skip_sweep_on_cran <- function() {
+  testthat::skip_on_cran()
+}
+
+skip_if_no_ffmpeg <- function() {
+  testthat::skip_on_cran()
+  testthat::skip_if_not(
+    nzchar(Sys.which("ffmpeg")),
+    message = "ffmpeg binary not available"
+  )
+}
+
+skip_if_no_ffprobe <- function() {
+  testthat::skip_on_cran()
+  testthat::skip_if_not(
+    nzchar(Sys.which("ffprobe")),
+    message = "ffprobe binary not available"
+  )
+}
+
+skip_if_no_mediainfo <- function() {
+  testthat::skip_on_cran()
+  testthat::skip_if_not(
+    nzchar(Sys.which("mediainfo")),
+    message = "mediainfo binary not available"
+  )
+}
+
+# Skip unless this FFmpeg can actually nvenc-encode at run time. has_hardware_encoder() is
+# only a cheap "is the encoder listed" check: a CI image can list h264_nvenc yet
+# have no libcuda / GPU (the encode then dies mid-run). So probe with a tiny real
+# encode and skip unless it exits 0 -- guarding execution tests against a listed-
+# but-unusable encoder.
+skip_if_no_nvenc <- function() {
+  # Ahead of everything: the probe encode below IS a spawn, so a CRAN skip
+  # placed after it would be too late (M118).
+  testthat::skip_on_cran()
+  testthat::skip_if_not(
+    nzchar(Sys.which("ffmpeg")),
+    message = "ffmpeg binary not available"
+  )
+  testthat::skip_if_not(has_hardware_encoder("h264", "nvenc"),
+                        message = "nvenc encoder not listed")
+  probe <- suppressWarnings(tryCatch(
+    system2(
+      "ffmpeg",
+      c("-hide_banner", "-loglevel", "error", "-f", "lavfi",
+        "-i", "nullsrc=s=64x48:d=0.1", "-c:v", "h264_nvenc",
+        "-frames:v", "1", "-f", "null", "-"),
+      stdout = FALSE, stderr = FALSE
+    ),
+    error = function(e) 1L
+  ))
+  testthat::skip_if_not(
+    identical(as.integer(probe), 0L),
+    message = "nvenc listed but not usable at run time"
+  )
+}
+
+# Create an empty, readable temporary input file so builder functions that check
+# file readability (e.g. ffm_files()) accept it. Registers cleanup on the given
+# environment (default: the calling test).
+make_input <- function(ext = "mp4", env = parent.frame()) {
+  path <- withr::local_tempfile(fileext = paste0(".", ext), .local_envir = env)
+  file.create(path)
+  path
+}
+
+# M68 -- the gate in front of the unremovable-output case.
+#
+# A test whose fixture is "a file that cannot be deleted" must not establish
+# that by TRYING to delete it: the attempt is the operation under test, and on a
+# platform where it succeeds the fixture is gone and the evidence vanishes
+# behind a green run (M63's review made the same call for unreadable inputs).
+# Ask the filesystem instead -- write permission on the containing directory is
+# what unlink() needs -- and skip only where the question cannot be posed:
+# Windows, whose chmod reaches only the read-only bit, and a process running as
+# root, which writes regardless. Anywhere else, a directory still writable after
+# Sys.chmod("0500") means something is wrong with the run, not with the
+# platform.
+tm_require_unwritable_dir <- function(dir) {
+  if (file.access(dir, mode = 2) != 0) return(invisible(dir))
+  windows <- .Platform$OS.type == "windows"
+  root <- !windows && identical(
+    tryCatch(as.integer(system("id -u", intern = TRUE)),
+             error = function(e) NA_integer_),
+    0L
+  )
+  if (windows || root) {
+    testthat::skip("this platform cannot express an undeletable file")
+  }
+  # fail() RECORDS a failure and returns, so on a platform where the chmod did
+  # not take, control would fall on into the removal under test and delete the
+  # fixture -- a second, misleading failure on top of the real one (M68 review).
+  # The skip that follows halts the test with the failure already recorded.
+  testthat::fail("the fixture directory is still writable after chmod 0500")
+  testthat::skip("fixture unusable; see the failure above")
+}
+
+# M68 -- the gate in front of the wildcard-name case.
+#
+# `unlink()` globs by default, so an output named "a*.mp4" could take its
+# neighbors with it. Windows cannot express that hazard at all: `*` and `?` are
+# illegal in a filename there, so the fixture cannot be created (measured on
+# windows-latest at M68's review -- `writeLines()` fails with "cannot open the
+# connection"). Build the fixture, verify it, and skip ONLY where the platform
+# genuinely cannot hold such a name; anywhere else a missing fixture means
+# something is wrong with the run, not with the platform (M63's shape). The
+# creation is not the operation under test -- the removal is -- so this is a
+# capability gate rather than a skip keyed on an outcome.
+tm_require_wildcard_name <- function(path) {
+  made <- tryCatch({
+    writeLines("content", path)
+    file.exists(path)
+  }, error = function(e) FALSE, warning = function(w) FALSE)
+  if (isTRUE(made)) return(invisible(path))
+  if (.Platform$OS.type == "windows") {
+    testthat::skip("Windows filenames cannot contain `*`")
+  }
+  testthat::fail(paste0("could not create the fixture file: ", path))
+}
+
+# Skip unless this FFmpeg can actually videotoolbox-encode at run time. The
+# shape is skip_if_no_nvenc()'s and for the same reason, but the encoder-list
+# check is deliberately absent: VideoToolbox is listed on every macOS build,
+# virtualized runners included, so the list answers nothing here and the
+# one-frame encode is the whole question.
+skip_if_no_videotoolbox <- function() {
+  # Ahead of everything: the probe encode below IS a spawn, so a CRAN skip
+  # placed after it would be too late (M118).
+  testthat::skip_on_cran()
+  testthat::skip_if_not(
+    nzchar(Sys.which("ffmpeg")),
+    message = "ffmpeg binary not available"
+  )
+  probe <- suppressWarnings(tryCatch(
+    system2(
+      "ffmpeg",
+      c("-hide_banner", "-loglevel", "error", "-f", "lavfi",
+        "-i", "nullsrc=s=64x48:d=0.1", "-c:v", "h264_videotoolbox",
+        "-frames:v", "1", "-f", "null", "-"),
+      stdout = FALSE, stderr = FALSE
+    ),
+    error = function(e) 1L
+  ))
+  testthat::skip_if_not(
+    identical(as.integer(probe), 0L),
+    message = "videotoolbox not usable at run time"
+  )
+}

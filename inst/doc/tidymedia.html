@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Get started with tidymedia</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Get started with tidymedia</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tidymedia)</span></code></pre></div>
+<p>tidymedia runs <a href="https://ffmpeg.org/">FFmpeg</a> and <a href="https://mediaarea.net/en/MediaInfo">MediaInfo</a> from R. It helps
+you prepare media files for research in a way you can repeat. It trims,
+crops and converts files, often many at once. It also reads media
+metadata into tibbles.</p>
+<p>tidymedia does not try to cover everything FFmpeg can do. The words
+that FFmpeg uses, such as <a href="#glossary">codec</a> and <a href="#glossary">stream</a>, are defined in the <a href="#glossary">glossary</a> at the end of this page.</p>
+<p>This page uses a short sample clip that comes with the package:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>video <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;sample.mp4&quot;</span>, <span class="at">package =</span> <span class="st">&quot;tidymedia&quot;</span>)</span></code></pre></div>
+<div id="start-with-a-task-function" class="section level2">
+<h2>Start with a task function</h2>
+<p>Most jobs need one call to a task function. For example, you may need
+the audio of a recording for a transcription tool.
+<code>extract_audio()</code> writes the audio to its own file:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">extract_audio</span>(video, <span class="st">&quot;audio.m4a&quot;</span>)</span></code></pre></div>
+<p>A task function runs FFmpeg at once. It returns the FFmpeg command it
+ran, but invisibly, so R prints nothing. A function that writes two
+files, such as <code>separate_audio_video()</code>, returns both
+commands.</p>
+<p>To see the command without running it, add <code>run = FALSE</code>.
+The function then returns the command as a string that you can read, log
+or save:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">extract_audio</span>(video, <span class="st">&quot;audio.m4a&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:0\&quot; \&quot;audio.m4a\&quot;&quot;</span></span></code></pre></div>
+<p>This is the main idea of the package. You can read each command
+before you run it. Cropping works the same way:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">crop_video</span>(video, <span class="st">&quot;cropped.mp4&quot;</span>, <span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
+<div id="choosing-an-audio-track" class="section level3">
+<h3>Choosing an audio track</h3>
+<p>Some recordings have more than one audio track, for example a room
+microphone and a lapel microphone. If you do not choose a track, FFmpeg
+chooses one for you.</p>
+<p>Each task function that reads one input file and picks an audio track
+has an <code>audio_stream</code> argument. It counts from 0, and it
+counts only the audio tracks. So <code>audio_stream = 1</code> is the
+second audio track, wherever it sits in the file:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">extract_audio</span>(video, <span class="st">&quot;lapel.m4a&quot;</span>, <span class="at">audio_stream =</span> <span class="dv">1</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:1\&quot; \&quot;lapel.m4a\&quot;&quot;</span></span></code></pre></div>
+<p>If you leave <code>audio_stream</code> out, the default depends on
+the function. A function that writes exactly one audio track, such as
+<code>extract_audio()</code>, takes the first track. A function that
+passes the audio through, such as <code>crop_video()</code>, keeps every
+track. Compare the <code>-map</code> parts of the two commands above and
+below:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">crop_video</span>(video, <span class="st">&quot;cropped.mp4&quot;</span>, <span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
+<p>The help page <code>?audio_stream</code> lists which functions use
+each default. It also explains <code>audio_input</code>, which the
+functions for several input files use. That argument counts input files
+from 0, not audio tracks.</p>
+<p>Each task function has a batch version for a folder of files, such as
+<code>extract_audio_batch()</code> and <code>crop_video_batch()</code>.
+See <code>vignette(&quot;batch&quot;)</code>. For a full research example that
+uses many task functions, see <code>vignette(&quot;workflow&quot;)</code>.</p>
+</div>
+</div>
+<div id="three-kinds-of-function" class="section level2">
+<h2>Three kinds of function</h2>
+<p>tidymedia has three kinds of function:</p>
+<ul>
+<li><strong>Task functions</strong>, such as
+<code>extract_audio()</code> and <code>crop_video()</code>, do one
+common job in one call. Start here.</li>
+<li><strong>Pipeline functions</strong>, whose names start with
+<code>ffm_</code>, build an FFmpeg command one step at a time. Each task
+function uses them. Use them when no task function does the job you
+need.</li>
+<li><strong>Direct commands</strong>, <code>ffmpeg()</code>,
+<code>ffprobe()</code> and <code>mediainfo()</code>, pass your own
+arguments to the program. Use them for anything that tidymedia does not
+cover.</li>
+</ul>
+<p>The rest of this page shows the pipeline functions.</p>
+</div>
+<div id="building-a-pipeline" class="section level2">
+<h2>Building a pipeline</h2>
+<p>A pipeline starts with <code>ffm_files()</code>, which names the
+input and output files. You add steps with <code>|&gt;</code>. Each step
+adds an instruction, and nothing runs yet. <code>ffm_compile()</code>
+turns the pipeline into the FFmpeg command:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;output.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">ffm_trim</span>(<span class="at">start =</span> <span class="dv">1</span>, <span class="at">end =</span> <span class="dv">5</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">ffm_crop</span>(<span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="fu">ffm_codec</span>(<span class="at">video =</span> <span class="st">&quot;libx264&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;trim=start=1:end=5,setpts=PTS-STARTPTS,crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
+<p>When you print a pipeline, R shows the same command. So you can look
+at a pipeline at any point:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;output.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">ffm_scale</span>(<span class="at">width =</span> <span class="dv">320</span>, <span class="at">height =</span> <span class="dv">240</span>) <span class="sc">|&gt;</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">ffm_pixel_format</span>(<span class="st">&quot;yuv420p&quot;</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; tidymedia ffmpeg pipeline:</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt;  -y -i &quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4&quot; -vf &quot;scale=w=320:h=240&quot; -pix_fmt yuv420p &quot;output.mp4&quot;</span></span></code></pre></div>
+<p>To run the command and write the output file, use
+<code>ffm_run()</code> in place of <code>ffm_compile()</code>.</p>
+<div id="more-pipeline-steps" class="section level3">
+<h3>More pipeline steps</h3>
+<p><code>ffm_fps()</code> changes the <a href="#glossary">frame
+rate</a>. <code>ffm_drawbox()</code> draws a box on the picture, which
+can hide a name on screen:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;boxed.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">ffm_fps</span>(<span class="dv">15</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">ffm_drawbox</span>(<span class="at">x =</span> <span class="dv">10</span>, <span class="at">y =</span> <span class="dv">10</span>, <span class="at">width =</span> <span class="dv">60</span>, <span class="at">height =</span> <span class="dv">40</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;fps=15,drawbox=x=10:y=10:w=60:h=40:c=black:t=fill\&quot; \&quot;boxed.mp4\&quot;&quot;</span></span></code></pre></div>
+<p><code>ffm_loudnorm()</code> makes audio a set loudness, in <a href="#glossary">LUFS</a>, with a limit on its <a href="#glossary">true
+peak</a>. Here <code>ffm_drop()</code> also leaves the video out of the
+output:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;speech.m4a&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">ffm_drop</span>(<span class="st">&quot;video&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">ffm_loudnorm</span>(<span class="at">target_loudness =</span> <span class="sc">-</span><span class="dv">23</span>, <span class="at">true_peak =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -vn \&quot;speech.m4a\&quot;&quot;</span></span></code></pre></div>
+<p><code>ffm_output_options()</code> adds FFmpeg output options that
+have no pipeline function of their own. tidymedia still puts them in the
+right place in the command:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;web.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="fu">ffm_output_options</span>(<span class="st">&quot;-movflags +faststart&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -movflags +faststart \&quot;web.mp4\&quot;&quot;</span></span></code></pre></div>
+</div>
+</div>
+<div id="fast-cuts-and-exact-cuts" class="section level2">
+<h2>Fast cuts and exact cuts</h2>
+<p>You can cut a clip in two ways. An exact cut <a href="#glossary">re-encodes</a> the video, which is slower. A fast cut
+uses a <a href="#glossary">stream copy</a>, which keeps the quality but
+starts at the nearest <a href="#glossary">keyframe</a>.</p>
+<p><code>ffm_seek()</code> does both. Set <code>reencode = FALSE</code>
+and add <code>ffm_copy()</code> for a fast cut:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># Fast cut with no loss of quality</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;output.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">ffm_seek</span>(<span class="at">start =</span> <span class="dv">1</span>, <span class="at">end =</span> <span class="dv">5</span>, <span class="at">reencode =</span> <span class="cn">FALSE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="fu">ffm_copy</span>() <span class="sc">|&gt;</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 1 -to 5 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -avoid_negative_ts make_zero -map \&quot;0\&quot; \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
+<p><code>ffm_seek()</code> uses FFmpeg’s <code>-ss</code> and
+<code>-to</code> options. <code>ffm_trim()</code> uses FFmpeg’s
+<code>trim</code> filter. Only <code>ffm_seek()</code> can make a fast
+cut.</p>
+</div>
+<div id="combining-multiple-inputs" class="section level2">
+<h2>Combining multiple inputs</h2>
+<p>Some pipeline functions take more than one input. Give
+<code>ffm_files()</code> a vector of files. Then use
+<code>ffm_hstack()</code> to put the videos side by side, or
+<code>ffm_vstack()</code> to put one above the other.
+<code>ffm_overlay()</code> puts one video on top of another, and
+<code>ffm_concat()</code> joins them end to end:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">ffm_files</span>(<span class="fu">c</span>(video, video), <span class="st">&quot;side_by_side.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">ffm_hstack</span>() <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]hstack=inputs=2:shortest=0[vout]\&quot; -map \&quot;[vout]\&quot; \&quot;side_by_side.mp4\&quot;&quot;</span></span></code></pre></div>
+<p><code>ffm_hstack()</code>, <code>ffm_vstack()</code> and
+<code>ffm_overlay()</code> leave the audio out. To keep it, add
+<code>ffm_map(&quot;0:a&quot;)</code>. <code>ffm_concat()</code> keeps all the
+streams, audio included. One-input task functions that pass audio
+through, such as <code>crop_video()</code>, do the opposite and keep
+every audio track.</p>
+<p>Two task functions cover the common cases.
+<code>compare_videos()</code> puts videos side by side or one above the
+other. <code>picture_in_picture()</code> puts a smaller copy of one
+video on top of another. Both take <code>audio_input</code>, which names
+the input whose audio to keep. They copy that audio unchanged unless you
+choose an audio <a href="#glossary">encoder</a> with
+<code>audio_codec</code>.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">compare_videos</span>(<span class="fu">c</span>(video, video), <span class="st">&quot;compare.mp4&quot;</span>, <span class="at">audio_input =</span> <span class="dv">0</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[0s][1s];[1s][0s]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[1s][0s];[0s][1s]hstack,setsar=1[vout]\&quot; -codec:a copy -map \&quot;[vout]\&quot; -map \&quot;0:a\&quot; \&quot;compare.mp4\&quot;&quot;</span></span></code></pre></div>
+<p>A pipeline has one input chain, a list of filters in order, and one
+output. It cannot build an FFmpeg filter graph with branches. For that,
+use the direct command <code>ffmpeg()</code>:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Your own arguments, passed to FFmpeg as they are</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">ffmpeg</span>(<span class="st">&quot;-version&quot;</span>)[<span class="dv">1</span>]</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; [1] &quot;ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers&quot;</span></span></code></pre></div>
+</div>
+<div id="glossary" class="section level2">
+<h2>Glossary</h2>
+<ul>
+<li><strong>Codec</strong>: a way to compress audio or video, such as
+H.264 or AAC. FFmpeg names each codec with a short string, such as
+<code>&quot;h264&quot;</code> or <code>&quot;aac&quot;</code>.</li>
+<li><strong>Container</strong>: the file format that holds the streams,
+such as MP4, MKV or WAV. The file extension usually names the
+container.</li>
+<li><strong>Stream</strong>: one track in a file, such as the video or
+one audio track. A file can hold more than one stream of each kind.</li>
+<li><strong>Encoder</strong>: the part of FFmpeg that writes a stream in
+a codec. One codec can have several encoders, such as
+<code>libx264</code> and <code>h264_videotoolbox</code> for H.264.</li>
+<li><strong>Re-encode</strong>: to decode a stream and write it again
+with an encoder. This is slower and can lose some quality, but it lets
+FFmpeg change the picture or sound.</li>
+<li><strong>Stream copy</strong>: to put a stream into the output file
+without decoding it. This is fast and keeps the quality, but it cannot
+change the picture or sound.</li>
+<li><strong>Pixel format</strong>: how a video stores the color of each
+pixel, such as <code>&quot;yuv420p&quot;</code>. Many players need
+<code>&quot;yuv420p&quot;</code> to play H.264 video.</li>
+<li><strong>Keyframe</strong>: a video frame that is stored whole, not
+as a change from the frames before it. A stream copy can start a cut
+only at a keyframe.</li>
+<li><strong>Frame rate</strong>: the number of video frames per
+second.</li>
+<li><strong>Sample rate</strong>: the number of audio samples per
+second, in hertz, such as
+48000.</li>
+<li><strong>LUFS</strong>: a unit of loudness that follows how loud
+people hear the sound. The EBU R 128 broadcast standard uses -23
+LUFS.</li>
+<li><strong>True peak</strong>: the highest level the sound wave
+reaches, including between samples. A limit on the true peak stops the
+sound from clipping.</li>
+<li><strong>Hardware encoder</strong>: an encoder that runs on a
+graphics card or a video chip instead of the main processor. NVIDIA
+nvenc and Apple videotoolbox are the two that tidymedia supports.</li>
+</ul>
+</div>
+<div id="where-to-next" class="section level2">
+<h2>Where to next</h2>
+<ul>
+<li><code>vignette(&quot;workflow&quot;)</code> shows a full research
+example.</li>
+<li><code>vignette(&quot;batch&quot;)</code> shows how to run a task function over
+many files.</li>
+<li><code>vignette(&quot;metadata&quot;)</code> shows how to read metadata into
+tibbles.</li>
+<li><code>vignette(&quot;verification&quot;)</code> shows how to check outputs and
+limit run time.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

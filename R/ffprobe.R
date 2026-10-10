@@ -1,0 +1,702 @@
+
+# ffprobe() ---------------------------------------------------------------
+
+#' Send a command to the FFprobe program
+#'
+#' `ffprobe()` runs the FFprobe program with the arguments in `command` and
+#' returns its output. FFprobe reads information about media files.
+#'
+#' `ffprobe()` is a direct command. The package passes `command` to FFprobe
+#' exactly as you wrote it, so you must add any quotes that it needs. To get
+#' tibbles instead, use [probe_all()] and the other `probe_*()` functions. These
+#' functions quote their arguments for you.
+#'
+#' @param command A string with the arguments to give FFprobe.
+#' @return A character vector with the text that FFprobe writes to standard
+#'   output, one element for each line. Messages on standard error, such as
+#'   FFprobe's banner and errors, are not returned. On macOS and Linux, a
+#'   shell redirect such as `2>&1` in `command` returns them too.
+#' @seealso [probe_all()] and the other `probe_*()` functions, which return
+#'   tibbles.
+#' @family direct command functions
+#' @examplesIf nzchar(Sys.which("ffprobe"))
+#' ffprobe("-version")
+#' @export
+ffprobe <- function(command) {
+  rlang::check_string(command)
+  limit <- resolve_timeout()
+  out <- guard_timeout(
+    "FFprobe", limit,
+    system(glue('"{find_ffprobe()}" {command}'), intern = TRUE,
+           timeout = limit)
+  )
+  out
+}
+
+
+# probe_all() -------------------------------------------------------------
+
+#' Look up information about media files using FFprobe
+#'
+#' `probe_all()` uses the FFprobe program to read information about media
+#' files. It returns two tibbles. One describes each file as a whole, and one
+#' describes each stream in the files.
+#'
+#' Give several files in `infile` to read them all in one call. The function
+#' stacks the rows, and the first column, `file`, names the input file. So you
+#' can join and filter the results for a whole batch with `dplyr`.
+#'
+#' The MediaInfo functions, `mediainfo_*()`, return tibbles or values. The
+#' `get_*()` functions return one value for each file.
+#'
+#' The glossary in `vignette("tidymedia")` explains media terms such as
+#' container and stream.
+#'
+#' @param infile A character vector of one or more media files to probe, as
+#'   file paths or web links.
+#' @param typed A logical. If `TRUE` (the default), numeric columns become
+#'   integers or doubles, and FFprobe's `"N/A"` becomes `NA`. Fractions,
+#'   ratios, hex identifiers and text stay as strings. If `FALSE`, every value
+#'   stays a string.
+#' @param parallel A logical. If `TRUE`, the function probes the files in
+#'   parallel with \pkg{furrr}. If `FALSE` (the default), it probes them one at
+#'   a time. A parallel run uses the active `future::plan()`. It warns when that
+#'   plan is sequential, because the run is then no faster. The output is the
+#'   same either way, with the same rows in the same order. `parallel = TRUE`
+#'   needs the \pkg{furrr} package, and only then does the function check for
+#'   it.
+#' @return A list of two tibbles. `container` has one row for each input file.
+#'   `streams` has one row for each stream. Both tibbles start with a `file`
+#'   column that names the input file. A file with no readable streams gets one
+#'   row in `streams`, with `NA` in every other column.
+#'
+#'   The function does not stop at a file that it could not probe. That file
+#'   gets a row of `NA` values in both tibbles, and the function gives a
+#'   warning. A file that reaches the time limit counts as not probed; see
+#'   [with_timeout()].
+#' @seealso [mediainfo_template()] and [mediainfo_query()] to read information
+#'   with MediaInfo. [get_duration()] and the other `get_*()` functions for
+#'   single values.
+#' @family metadata functions
+#' @examplesIf nzchar(Sys.which("ffprobe"))
+#' video <- system.file("extdata", "sample.mp4", package = "tidymedia")
+#' info <- probe_all(video)
+#' info$container
+#' info$streams
+#' @export
+probe_all <- function(infile, typed = TRUE, parallel = FALSE) {
+  probe_all_impl(infile, typed, parallel)
+}
+
+# probe_all_impl() --------------------------------------------------------
+
+# probe_all()'s whole body, with one internal-only knob: `absorb`.
+#
+# `absorb = FALSE` re-raises a timeout instead of turning it into an NA row, for
+# the one caller that must not absorb -- verify_media(), which asks whether a
+# file HAS given properties, and for which a probe that never answered is not an
+# answer of "no" (D048).
+#
+# A flag on the shared body rather than a second probe in verify.R: the `file`
+# column, the NA-row shape and type_columns() would then have two
+# implementations that could drift, and the two returns have to stay the same
+# tibbles. It also keeps the sentinel OFF probe_all()'s return, where it rode as
+# a `tm_timed_out` attribute until M70 -- an attribute on a public return
+# survives every documented operation and breaks `@param parallel`'s promise
+# that the two paths give identical output the moment either side sets it.
+probe_all_impl <- function(infile, typed = TRUE, parallel = FALSE,
+                           absorb = TRUE, call = rlang::caller_env()) {
+  # `call` is threaded through every refusal, not just the re-raise: this body
+  # used to BE probe_all(), and without it the front door's own argument errors
+  # would read "Error in `probe_all_impl()`" and name a function the caller has
+  # no way to reach (M64/M65's blame rule).
+  check_path_vector(infile, what = "file locations", call = call)
+  rlang::check_bool(typed, call = call)
+  rlang::check_bool(parallel, call = call)
+
+  # D074: `call` is already threaded here, so the refusal names probe_all() or
+  # verify_media() -- whichever the caller typed -- rather than the
+  # purrr::map(infile, probe_one) below. Above the `parallel` branch, so a
+  # machine-independent refusal still reports before a machine-dependent one
+  # (D036) and the fan-out is never dispatched under a limit base R cannot use.
+  resolve_timeout(call = call)
+
+  if (parallel) {
+    rlang::check_installed("furrr", reason = "for parallel probing.")
+    # probe_all() is a terminal entry point -- unlike loudnorm's Phase 1
+    # fan-out, which leaves this warning to the ffm_batch() call that follows
+    # it, nothing downstream warns for this one. Without the guard,
+    # `parallel = TRUE` under the default sequential plan is a silent no-op,
+    # which is the case D012 added the guard for (M53 T1).
+    warn_if_sequential_plan()
+  }
+
+  # Only probe_one() shells out, so only probe_one() is worth fanning out; the
+  # assembly below stays in this process. That is deliberate rather than
+  # incidental -- the failure list and the single end-of-call warning are
+  # parent-process state, and accumulating them inside workers would either
+  # lose them or emit one warning per worker (AC3). Mapping over `infile` in
+  # order also keeps the output rows in the INPUT vector's order, which is
+  # what the preallocated `[[i]]` assignment used to guarantee.
+  probes <- if (parallel) {
+    furrr::future_map(infile, carry_options(probe_one, call = call))
+  } else {
+    purrr::map(infile, probe_one)
+  }
+
+  containers <- vector("list", length(infile))
+  streams_l <- vector("list", length(infile))
+  failed <- character(0)
+  # Tracked apart from `failed` because a file that HUNG and a file that is
+  # unreadable are different facts for the caller, even though both yield the
+  # same NA row. A user who set a limit precisely to catch hangs cannot act on
+  # a warning that calls the two the same thing.
+  timed_out <- character(0)
+
+  for (i in seq_along(infile)) {
+    f <- infile[[i]]
+    res <- probes[[i]]
+    if (is_absorbed_timeout(res)) {
+      if (!absorb) reraise_absorbed(res, call = call)
+      timed_out <- c(timed_out, f)
+      res <- NULL
+    }
+    if (is.null(res)) {
+      failed <- c(failed, f)
+      containers[[i]] <- tibble::tibble(file = f)
+      streams_l[[i]] <- tibble::tibble(file = f)
+      next
+    }
+    containers[[i]] <- tibble::add_column(res$container, file = f, .before = 1)
+    if (nrow(res$streams) == 0) {
+      streams_l[[i]] <- tibble::tibble(file = f)
+    } else {
+      streams_l[[i]] <- tibble::add_column(res$streams, file = f, .before = 1)
+    }
+  }
+
+  if (length(failed)) {
+    cli::cli_warn(c(
+      "Could not probe {length(failed)} file{?s}; returning {.val {NA}} row{?s}.",
+      "x" = "{.file {failed}}",
+      if (length(timed_out)) c(
+        "i" = "{length(timed_out)} of {cli::qty(length(failed))}{?these/those} \\
+               timed out rather than being unreadable; raise or remove \\
+               {.code options(tidymedia.timeout = )}."
+      )
+    ))
+  }
+
+  container <- dplyr::bind_rows(containers)
+  streams <- dplyr::bind_rows(streams_l)
+  if (typed) {
+    container <- type_columns(container)
+    streams <- type_columns(streams)
+  }
+  list(container = container, streams = streams)
+}
+
+# count_audio_streams() ---------------------------------------------------
+
+# Count one input's audio streams, or return NA when the count cannot be had.
+# This is the ONLY place the audio verbs' track-drop diagnostic assembles an
+# FFprobe token vector -- it lives here beside probe_one(), the package's other
+# FFprobe token builder, rather than in a Layer-2 verb body (D024/RR02 Q4). One
+# narrow invocation rather than probe_all(), which reads every field of every
+# stream and warns on an unreadable file: this needs a single number and must
+# stay silent.
+#
+# NA is "no answer", never "no audio". D024 licenses this probe only while its
+# outcome changes nothing but whether a warning is signalled, so every failure
+# path has to reach the caller as NA rather than as a condition:
+#   - find_ffprobe() WARNS when the binary is missing and can also ERROR on a
+#     corrupt user config, so it gets both a suppressWarnings() and a tryCatch()
+#     of its own. suppressWarnings() rather than a bare Sys.which() keeps
+#     find_program()'s user-config fallback, so a machine where ffprobe was
+#     registered with set_ffprobe() is still found. Both are load-bearing:
+#     nothing else here catches either channel.
+#   - run_program() ABORTS on a NULL/empty location. Its own tryCatch() below is
+#     what makes that silent; the explicit length/NA/nzchar short-circuit is
+#     belt-and-braces, kept to avoid building a call that can only abort.
+#     Measured at M44: deleting it leaves every test green, so do not read it as
+#     the guarantee.
+#   - a non-zero ffprobe exit arrives as a `status` attribute (system2 with
+#     stdout = TRUE), which is not an R condition and would otherwise read as a
+#     count of however many lines came back before the failure.
+count_audio_streams <- function(file) {
+  # find_ffprobe() USED to error as well as warn, and the tryCatch() below does
+  # not reach it: find_program() readLines() a user config written by
+  # set_ffprobe() and then tested `if (Sys.which(location) == "")`, so an empty
+  # config gave `if (logical(0))` and a two-line one a length-2 condition --
+  # both aborting the verb on a machine where it used to just run (M44 review
+  # F2). M116 put a guard above that test, so those two shapes now warn
+  # `tidymedia_location_unreadable` and return NULL; the tryCatch() stays
+  # because the error channel is what this test exists to prove is absorbed,
+  # and nothing promises find_ffprobe() will never error again.
+  # length(loc) != 1L rather than is.null() first: `character(0)` would make
+  # is.na(loc) return logical(0) and `if` throw on that too.
+  loc <- tryCatch(suppressWarnings(find_ffprobe()), error = function(e) NULL)
+  if (length(loc) != 1L || is.na(loc) || !nzchar(loc)) return(NA_integer_)
+  # absorb_timeout() sits INSIDE the blanket tryCatch(), not outside it: the
+  # outer handler catches every error, so a timeout reaching it first would be
+  # flattened back into the silent NA this milestone exists to remove. Inside,
+  # it converts the abort to the sentinel before anything else sees an error.
+  out <- tryCatch(
+    absorb_timeout(run_program(
+      loc,
+      c("-i", file, "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=index", "-of", "csv=p=0"),
+      program = "FFprobe"
+    )),
+    error = function(e) NULL,
+    warning = function(w) NULL
+  )
+  # The sentinel travels one level up, to count_audio_streams_all(), which is
+  # where the counts are assembled and so the only place a per-CALL warning can
+  # be raised. Every other failure still answers NA and says nothing.
+  if (is_absorbed_timeout(out)) return(out)
+  if (is.null(out) || !is.null(attr(out, "status"))) return(NA_integer_)
+  sum(nzchar(trimws(out)))
+}
+
+# count_audio_streams_all() -----------------------------------------------
+
+# Count each input's audio streams, probing each distinct file once, and say so
+# ONCE when the limit ended the wait on one or more of those probes.
+#
+# The five call sites all route through here so the warning cannot drift and
+# cannot repeat: M69 left a bounded hang under extract_audio(), convert_audio(),
+# separate_audio_video() and their _batch siblings completely invisible, because
+# count_audio_streams() answered NA for a timed-out probe exactly as it does for an
+# unreadable file (D048). Per-file would be worse than silence on a large jobs
+# table -- R collapses at "There were 50 or more warnings" (M44's gate), which
+# is why warn_dropped_audio() is one-warning-whatever-the-length too.
+#
+# The RETURN is unchanged: NA for a timed-out probe, the same value the silent
+# version gave. D024 licenses this probe only while its outcome changes nothing
+# but whether a diagnostic is signalled, and a warning is inside that licence
+# where a changed count would not be.
+#
+# `progress` puts a cli bar over the sweep (M082), for the one caller whose
+# sweep is long enough to look like a hang: warn_dropped_audio_batch(), which
+# probes every distinct input in a jobs table serially at the front door before
+# the fan-out starts. It is off for every other caller, whose sweep is one file.
+# The bar counts DISTINCT inputs, because that is what the sweep visits. cli
+# renders nothing until a bar has been alive two seconds, so a fast sweep still
+# shows nothing at all; the bar is not gated on the batch verbs' own `progress`
+# argument, which governs ffm_batch()'s run-time bar rather than this front-door
+# cost.
+count_audio_streams_all <- function(files, call = rlang::caller_env(),
+                                    progress = FALSE) {
+  uniq <- unique(files)
+  # One sweep whether or not the bar is drawn: an lapply() for the silent case
+  # beside a for() for the other would be two copies of the one loop.
+  if (isTRUE(progress)) {
+    cli::cli_progress_bar("Checking audio tracks", total = length(uniq))
+  }
+  res <- vector("list", length(uniq))
+  for (i in seq_along(uniq)) {
+    # res[i] <- list(x), not res[[i]] <- x: the double-bracket form DELETES the
+    # element on a NULL, shortening the list and length-mismatching the vapply()
+    # below against `uniq`. count_audio_streams() answers no NULL today; the
+    # lapply() this loop replaced preserved one, and this keeps that property.
+    res[i] <- list(count_audio_streams(uniq[[i]]))
+    if (isTRUE(progress)) cli::cli_progress_update()
+  }
+  if (isTRUE(progress)) cli::cli_progress_done()
+  timed_out <- vapply(res, is_absorbed_timeout, logical(1))
+  counts <- vapply(
+    res,
+    function(x) if (is_absorbed_timeout(x)) NA_integer_ else x,
+    integer(1)
+  )
+  if (any(timed_out)) {
+    hit <- res[[which(timed_out)[[1]]]]
+    cli::cli_warn(
+      c(
+        "The audio-track check timed out on {sum(timed_out)} \\
+         input{?s} after {hit$limit} second{?s}.",
+        "x" = "{.file {uniq[timed_out]}}",
+        "i" = "{cli::qty(sum(timed_out))}\\
+               {?That input is/Those inputs are} not checked for dropped \\
+               audio tracks; raise or remove \\
+               {.code options(tidymedia.timeout = )}."
+      ),
+      class = "tidymedia_probe_timeout",
+      call = call
+    )
+  }
+  counts[match(files, uniq)]
+}
+
+# probe_one() -------------------------------------------------------------
+
+# Probe a single file. Returns list(container, streams) of raw-character tibbles
+# (no `file` column, no type conversion; probe_all() adds those), or NULL if the
+# file cannot be probed (missing path, unreachable URL, unreadable media).
+#
+# ONE FFprobe process per file, not `nb_streams + 1`. The container and every
+# stream come back from a single call, because the compact writer delimits its
+# sections by line and its fields by `|` -- where `default=nw=1` runs sections
+# together with no delimiter at all, which is why the old code had to ask for
+# one stream at a time and pay a process for each.
+#
+# The three writer options are pinned rather than left to their defaults
+# because parse_compact_probe() depends on all three: `print_section=1` emits
+# the leading `stream|`/`format|` field it dispatches on, `nokey=0` keeps the
+# `key=value` form, and `escape=c` is the escaping it decodes.
+#
+# A timeout is absorbed here rather than allowed to propagate: probe_all() maps
+# this over the whole input vector, so an escaping abort would throw away every
+# other file's result to report the one that hung. D047 puts the timeout on the
+# same footing as any other unreadable file for the RETURN VALUE -- an NA row
+# either way -- but not for the diagnosis: the sentinel travels up to
+# probe_all(), which says which files hung, and to verify_media(), which
+# refuses outright.
+probe_one <- function(file) {
+  out <- absorb_timeout(run_program(
+    find_ffprobe(),
+    c("-i", file, "-v", "quiet", "-show_format", "-show_streams",
+      "-of", "compact=print_section=1:nokey=0:escape=c"),
+    program = "FFprobe"
+  ))
+  if (is_absorbed_timeout(out)) return(out)
+  parse_compact_probe(out)
+}
+
+# probe_container() -------------------------------------------------------
+
+#' Shortcut functions for probing specific information
+#'
+#' These functions return one part of what [probe_all()] returns.
+#' `probe_container()` returns the `container` tibble, and `probe_streams()`
+#' returns the `streams` tibble. `probe_video()` and `probe_audio()` return only
+#' the video rows or the audio rows of `streams`.
+#'
+#' Give each function either the output of [probe_all()] in `probe`, or one or
+#' more files in `infile`. Give exactly one of the two, or the function gives
+#' an error. With `infile`, the function probes the files again. For large
+#' files, probe once with [probe_all()] and reuse the result.
+#'
+#' These functions use FFprobe and return tibbles. The MediaInfo functions,
+#' `mediainfo_*()`, and the `get_*()` functions are the other ways to read
+#' information. The glossary in `vignette("tidymedia")` explains media terms
+#' such as container and stream.
+#'
+#' @param probe A list made by [probe_all()]. Must be `NULL` if you give
+#'   `infile`.
+#' @param infile A character vector of one or more media files. Must be `NULL`
+#'   if you give `probe`.
+#' @param typed A logical that the function passes to [probe_all()] when you
+#'   give `infile`. The default is `TRUE`. The function ignores it when you give
+#'   `probe`.
+#' @param parallel A logical that the function passes to [probe_all()] when you
+#'   give `infile`. If `TRUE`, it probes the files in parallel with \pkg{furrr}.
+#'   If `FALSE` (the default), it probes them one at a time. The function
+#'   ignores it when you give `probe`, because nothing is left to probe.
+#' @return A tibble with only the requested information. When you give
+#'   `infile`, a file that could not be probed gives a warning, as in
+#'   [probe_all()].
+#' @seealso [probe_all()] for the full probe. [mediainfo_query()] to read
+#'   information with MediaInfo. [get_width()] and the other `get_*()`
+#'   functions for single values.
+#' @family metadata functions
+#' @examplesIf nzchar(Sys.which("ffprobe"))
+#' video <- system.file("extdata", "sample.mp4", package = "tidymedia")
+#' # Probe directly from a file location ...
+#' probe_container(infile = video)
+#' # ... or reuse a probe object to avoid reprobing large files
+#' info <- probe_all(video)
+#' probe_video(info)
+#' probe_audio(info)
+#' @export
+probe_container <- function(probe = NULL, infile = NULL, typed = TRUE,
+                            parallel = FALSE) {
+  resolve_probe(probe, infile, typed, parallel)$container
+}
+
+# probe_streams() ---------------------------------------------------------
+
+#' @rdname probe_container
+#' @export
+probe_streams <- function(probe = NULL, infile = NULL, typed = TRUE,
+                          parallel = FALSE) {
+  resolve_probe(probe, infile, typed, parallel)$streams
+}
+
+# probe_video() -----------------------------------------------------------
+
+#' @rdname probe_container
+#' @export
+probe_video <- function(probe = NULL, infile = NULL, typed = TRUE,
+                        parallel = FALSE) {
+  filter_streams(resolve_probe(probe, infile, typed, parallel)$streams, "video")
+}
+
+# probe_audio() -----------------------------------------------------------
+
+#' @rdname probe_container
+#' @export
+probe_audio <- function(probe = NULL, infile = NULL, typed = TRUE,
+                        parallel = FALSE) {
+  filter_streams(resolve_probe(probe, infile, typed, parallel)$streams, "audio")
+}
+
+# filter_streams() --------------------------------------------------------
+
+# Select stream rows of a given codec type. When every input file failed to
+# probe the streams tibble carries only a `file` column (no `codec_type`), so
+# guard against the missing column and return an empty result rather than
+# aborting (keeps the D-M04-7 resilience contract on wholly-unreadable input).
+filter_streams <- function(streams, type) {
+  if (!"codec_type" %in% names(streams)) return(streams[0, , drop = FALSE])
+  dplyr::filter(streams, .data$codec_type %in% type)
+}
+
+# resolve_probe() ---------------------------------------------------------
+
+# Shared front-end for the probe_*() shortcuts: require exactly one of `probe`
+# or `infile`, and probe the file(s) when `infile` is given.
+resolve_probe <- function(probe, infile, typed, parallel = FALSE,
+                          call = rlang::caller_env()) {
+  if (is.null(probe) + is.null(infile) != 1) {
+    cli::cli_abort(
+      "Provide exactly one of {.arg probe} or {.arg infile}.", call = call
+    )
+  }
+  # `parallel` is consumed exactly where `typed` is -- on the infile branch.
+  # A probe object has nothing left to fan out, so both are ignored there.
+  if (!is.null(infile)) {
+    # D074, on the infile branch ONLY: this is the branch that probes, so it is
+    # the branch that reads the limit. `call` is the shortcut the caller typed,
+    # which is why the refusal has to happen here rather than inside probe_all()
+    # below. A `probe =` call reprobes nothing and reads no limit, so it has
+    # nothing to refuse.
+    # The same three checks probe_all_impl() runs, hoisted for D074's ordering:
+    # down there they sit below the refusal, so leaving them to it made an
+    # invalid limit displace the caller's own argument error at all four
+    # shortcuts (M94 review G1). Repeated rather than moved -- probe_all() is
+    # reachable without passing through here.
+    check_path_vector(infile, what = "file locations", call = call)
+    rlang::check_bool(typed, call = call)
+    rlang::check_bool(parallel, call = call)
+    resolve_timeout(call = call)
+    probe <- probe_all(infile, typed = typed, parallel = parallel)
+  }
+  probe
+}
+
+# parse_compact_probe() ---------------------------------------------------
+
+# Turn the output of ONE `ffprobe -show_format -show_streams -of compact` call
+# into the same list(container, streams) of raw-character tibbles the old
+# per-stream `-of default=nw=1` loop built, or NULL when the file could not be
+# probed.
+#
+# The compact writer is what lets a single call carry every stream: it puts one
+# section per LINE and escapes anything that could forge a line or field break,
+# where `default=nw=1` concatenates sections with no delimiter and escapes
+# nothing at all. That second half is not a hypothetical -- a tag value carrying
+# a newline splits into further `key=value`-looking lines under the old writer,
+# and the old parser duly turned the remainder into bogus columns.
+#
+# Three things this has to undo to keep the returned columns byte-identical to
+# what the package has always returned:
+#   - each line leads with a KEYLESS section field (`stream|...`, `format|...`),
+#     and in a combined call the format line arrives LAST, so rows are dispatched
+#     by that field rather than by position;
+#   - fields are separated by `|`, which a value may also contain as `\|`;
+#   - nested sections carry a key prefix the old writer spelled differently, or
+#     did not spell at all -- see compact_key_name().
+parse_compact_probe <- function(x) {
+  x <- x[nzchar(x)]
+  if (length(x) == 0) return(NULL)
+
+  rows <- lapply(x, compact_row)
+  section <- vapply(rows, function(r) r$section, character(1))
+
+  fmt <- rows[section == "format"]
+  # No format section means FFprobe told us nothing about the container, which
+  # is what an unreadable file looks like; the old code reached the same NULL by
+  # way of an empty `-show_format` call.
+  if (length(fmt) == 0) return(NULL)
+
+  st <- rows[section == "stream"]
+  streams <- if (length(st)) {
+    dplyr::bind_rows(lapply(st, function(r) r$data))
+  } else {
+    # A container FFprobe can read but that carries no streams. The old code
+    # reached this through an `nb_streams < 1` early return.
+    tibble::tibble()
+  }
+  list(container = fmt[[1]]$data, streams = streams)
+}
+
+# compact_row() -----------------------------------------------------------
+
+# One compact line -> list(section, one-row tibble). The `key=value` split is on
+# the *first* `=` only, exactly as the old parser did, so a value containing `=`
+# survives; the writer does not escape `=`, so splitting before unescaping is
+# safe.
+#
+# Every string operation from here down is byte-based (`useBytes = TRUE`). The
+# separators and escapes are all ASCII, so byte matching is exactly equivalent
+# on well-formed input, and on ill-formed input it is the difference between
+# parsing the line and losing it: R's character-based string functions treat a
+# line that is invalid in the session's `LC_CTYPE` as an error or an `NA`, which
+# would drop a whole stream row for one unreadable metadata byte.
+compact_row <- function(line) {
+  fields <- compact_fields(line)
+  kv <- fields[-1]
+  kv <- kv[nzchar(kv)]
+  key <- compact_key_name(compact_unescape(sub("=.*$", "", kv,
+                                               useBytes = TRUE)))
+  value <- compact_unescape(sub("^[^=]*=", "", kv, useBytes = TRUE))
+  names(value) <- key
+  list(section = fields[[1]], data = tibble::as_tibble(as.list(value)))
+}
+
+# compact_fields() --------------------------------------------------------
+
+# Split one compact line on its UNESCAPED `|` separators. A `|` is a separator
+# only when an even number of backslashes precede it, since the writer spells a
+# literal backslash `\\` and a literal `|` `\|`.
+#
+# Split on every `|` first, then glue back the ones that were escaped. The
+# obvious alternative -- substitute a placeholder for the escaped forms and
+# split on what is left -- has no safe placeholder here: the writer passes
+# control characters through RAW (BEL, TAB and vertical tab were each measured
+# arriving unescaped), so no byte is free to stand in for a separator without
+# risking a collision with a value that genuinely contains it.
+compact_fields <- function(line) {
+  raw <- charToRaw(line)
+  if (length(raw) == 0) return("")
+  pieces <- strsplit(line, "|", fixed = TRUE, useBytes = TRUE)[[1]]
+  # strsplit() drops trailing empty fields, so `a|` comes back as one piece
+  # where the line has two. Count the separators to put them back.
+  n_sep <- sum(raw == as.raw(0x7C))
+  if (length(pieces) < n_sep + 1L) {
+    pieces <- c(pieces, rep("", n_sep + 1L - length(pieces)))
+  }
+  out <- character(0)
+  cur <- pieces[[1]]
+  for (i in seq_along(pieces)[-1]) {
+    if (ends_in_odd_backslashes(cur)) {
+      # The `|` that split these two was escaped: it belongs to the value.
+      cur <- paste0(cur, "|", pieces[[i]])
+    } else {
+      out <- c(out, cur)
+      cur <- pieces[[i]]
+    }
+  }
+  c(out, cur)
+}
+
+# Does `s` end in an ODD number of backslashes -- i.e. would a `|` following it
+# have been escaped? Counted over bytes, so a value carrying a byte invalid in
+# the session locale is still measurable.
+ends_in_odd_backslashes <- function(s) {
+  raw <- charToRaw(s)
+  n <- length(raw)
+  if (n == 0 || raw[[n]] != as.raw(0x5C)) return(FALSE)
+  other <- which(raw != as.raw(0x5C))
+  run <- if (length(other) == 0) n else n - max(other)
+  run %% 2L == 1L
+}
+
+# compact_unescape() ------------------------------------------------------
+
+# Decode the writer's C-style escapes. Measured on ffmpeg 8.1.2, the compact
+# writer emits exactly six: `\\`, `\|`, `\n`, `\r`, `\b` and `\f`. The control
+# characters BEL, TAB and vertical tab arrive raw and so need no decoding.
+#
+# The table carries `t`, `v` and `a` anyway, and every other `\X` decodes to
+# `X`. That is not guesswork: since a literal backslash always arrives as `\\`,
+# a lone `\` in the decoded input is impossible, so no mapping here can collide
+# with real content -- a source value of backslash-then-t arrives as `\\t`, is
+# consumed as the pair `\\`, and comes back as backslash-then-t either way.
+#
+# The pairs are decoded in ONE pass. A sequence of gsub() calls cannot do this:
+# resolving `\\` first turns the literal backslash-n of `\\n` into a real `\n`,
+# which the next gsub then reads as a newline escape.
+compact_unescape <- function(x) {
+  map <- c(n = "\n", r = "\r", f = "\f", b = "\b", t = "\t", v = "\v", a = "\a")
+  vapply(x, function(s) {
+    if (!grepl("\\", s, fixed = TRUE, useBytes = TRUE)) return(s)
+    hits <- gregexpr("\\\\.", s, perl = TRUE, useBytes = TRUE)
+    pairs <- regmatches(s, hits)[[1]]
+    if (length(pairs) == 0) return(s)
+    tail <- substr(pairs, 2L, 2L)
+    regmatches(s, hits) <- list(unname(ifelse(tail %in% names(map),
+                                              map[tail], tail)))
+    s
+  }, character(1), USE.NAMES = FALSE)
+}
+
+# compact_key_name() ------------------------------------------------------
+
+# Give a nested-section key the name `default=nw=1` gave it, so the columns
+# `probe_all()` returns are unchanged. The two writers disagree three ways, and
+# only two of them are about casing:
+#
+#   tag:title                          -> TAG:title
+#   disposition:default                -> DISPOSITION:default
+#   side_datum/display_matrix:rotation -> rotation
+#
+# Side data is the one that bites. The old writer printed it with NO prefix at
+# all, so `rotation` -- present on essentially every phone video, and read by
+# anything that corrects orientation -- is a bare column name that users
+# already depend on. Uppercasing the prefix instead of dropping it renamed that
+# column out of existence, which is how M52's first review round found this.
+# The prefix also varies by side-data type, so uppercasing scatters a mixed
+# batch across per-type columns where it had one shared `rotation`.
+#
+# Those three are the whole nested-section set `-show_format -show_streams`
+# emits, measured on ffmpeg 8.1.2. An unrecognized prefix is left ALONE rather
+# than guessed at: a wrong rename is silent, where a compact-shaped name in the
+# output is at least visible.
+#
+# The side-data pattern is deliberately wider than the one spelling measured
+# here. FFprobe builds the prefix from the section's own name and an optional
+# type slug, and both have moved across versions: an older writer emits the key
+# bare (nothing to strip, and the `^` anchor means nothing is), 8.1.2 emits
+# `side_datum/display_matrix:`, and the stem has been spelled `side_data` too.
+# Matching the stem plus anything up to the first `:` covers all of them, and
+# cannot over-reach: FFprobe's own field names carry no `:`, so only a nested
+# section can match at all.
+#
+# Byte-based, like everything else in this parser: a metadata key carrying a
+# byte invalid in the session locale must not take its row down with it.
+compact_key_name <- function(key) {
+  key <- sub("^tag:", "TAG:", key, useBytes = TRUE)
+  key <- sub("^disposition:", "DISPOSITION:", key, useBytes = TRUE)
+  sub("^side_dat(a|um)[^:]*:", "", key, useBytes = TRUE)
+}
+
+
+# convert_fractions() -----------------------------------------------------
+
+#' Convert string fractions to doubles
+#'
+#' This is useful for columns such as frame rates, which FFprobe often lists as
+#' fractions such as `"30000/1001"` (this converts to 29.97003).
+#'
+#' @param x A character vector containing fractions (`"a/b"`) or plain numbers
+#'   to evaluate. Surrounding whitespace is ignored; `NA` passes through.
+#' @return A numeric vector with each fraction evaluated to a double.
+#' @noRd
+convert_fractions <- function(x) {
+  if (!rlang::is_character(x)) {
+    cli::cli_abort("{.arg x} must be a character vector.")
+  }
+  vapply(x, function(s) {
+    if (is.na(s)) return(NA_real_)
+    parts <- strsplit(trimws(s), "/", fixed = TRUE)[[1]]
+    nums <- suppressWarnings(as.numeric(parts))
+    if (length(parts) == 2 && !anyNA(nums)) return(nums[[1]] / nums[[2]])
+    if (length(parts) == 1 && !is.na(nums)) return(nums)
+    cli::cli_abort(
+      "{.arg x} contains a value that is not a number or fraction: {.val {s}}."
+    )
+  }, numeric(1), USE.NAMES = FALSE)
+}

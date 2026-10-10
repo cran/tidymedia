@@ -1,0 +1,157 @@
+---
+title: "Media metadata as tibbles"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Media metadata as tibbles}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+# Metadata readers shell out to FFprobe / MediaInfo. Chunks that need a binary
+# are evaluated only when it is available, so this vignette builds cleanly on
+# machines (and CI images) that lack the command-line tools.
+has_ffprobe <- nzchar(Sys.which("ffprobe"))
+has_mediainfo <- nzchar(Sys.which("mediainfo"))
+```
+
+```{r setup}
+library(tidymedia)
+```
+
+tidymedia reads media metadata into tibbles. So the metadata of a whole folder
+becomes a data frame that you can filter, join and summarize.
+
+Two programs read the metadata:
+
+- FFprobe, used by the `probe_*()` functions, reads facts about the
+  [container](tidymedia.html#glossary) and each
+  [stream](tidymedia.html#glossary).
+- MediaInfo, used by the `mediainfo_*()` and `get_*()` functions, reads a
+  larger set of fields, grouped in a different way.
+
+You need the program installed to use its functions. The
+[README](https://github.com/jmgirard/tidymedia) shows how to install them. The
+examples use the sample clip that comes with the package:
+
+```{r}
+video <- system.file("extdata", "sample.mp4", package = "tidymedia")
+```
+
+## Which reader?
+
+The readers differ in the program they use and in what they return. Choose by
+what you need back:
+
+| Functions | Program | Returns | Use it when |
+|---|---|---|---|
+| `probe_all()`, `probe_container()`, `probe_streams()`, `probe_video()`, `probe_audio()` | FFprobe | tibbles, with rows for the file and for each stream | you want the file and stream facts as a data frame |
+| `mediainfo_query()`, `mediainfo_template()` | MediaInfo | a tibble with one row per file | you want MediaInfo's larger set of fields as a data frame |
+| `mediainfo_parameter()` | MediaInfo | one value per file | you want one MediaInfo field for several files |
+| `get_duration()`, `get_frame_rate()`, `get_width()`, `get_height()`, `get_sample_rate()` | MediaInfo | one number per file | you want one common field without naming a MediaInfo section |
+
+Some facts, such as the width of the picture, come from both `probe_video()`
+and `get_width()`. Then choose by the shape you want back and the program you
+have.
+
+## Probing with FFprobe
+
+`probe_all()` returns a list of two tibbles. `container` has one row for each
+file, and `streams` has one row for each stream. Both start with a `file`
+column, so the results for several files stack into one table.
+
+```{r, eval = has_ffprobe}
+info <- probe_all(video)
+info$container
+```
+
+```{r, eval = has_ffprobe}
+info$streams
+```
+
+The other `probe_*()` functions return one part of that result. You can give
+them the result of `probe_all()`, so FFprobe does not read the file again. Or
+you can give them a file with `infile`:
+
+```{r, eval = has_ffprobe}
+# Use the probe result, so the file is not read again
+probe_video(info)
+```
+
+By default, `typed = TRUE` gives number columns a number type. With
+`typed = FALSE`, every column is a string. FFprobe reports a
+[frame rate](tidymedia.html#glossary) as a fraction such as `"30000/1001"`.
+The fraction stays a string, even with `typed = TRUE`.
+
+## Querying with MediaInfo
+
+MediaInfo groups its fields in sections, such as `General`, `Video` and
+`Audio`. `mediainfo_query()` reads several fields from one section into a
+tibble:
+
+```{r, eval = has_mediainfo}
+mediainfo_query(
+  video,
+  section = "Video",
+  parameters = c("Width", "Height", "FrameRate")
+)
+```
+
+`mediainfo_template()` reads a whole set of fields at once. The package has two
+templates, `"brief"` and `"extended"`:
+
+```{r, eval = has_mediainfo}
+mediainfo_template(video, template = "brief")
+```
+
+For one value, use the `get_*()` functions:
+
+```{r, eval = has_mediainfo}
+get_duration(video, unit = "sec")
+get_width(video)
+get_height(video)
+```
+
+## Batching over many files
+
+Each reader takes a vector of files, so you do not need a loop to read a whole
+folder. The `probe_*()`, `mediainfo_query()` and `mediainfo_template()`
+functions mark each row with its `file`. The `get_*()` functions return one
+value per file, in the order given.
+
+`ffm_jobs()` lists the video files in a folder, in all the formats it knows. To
+list only one format, add `extension = "mp4"`. If the folder has no such files,
+`ffm_jobs()` stops with an error:
+
+```{r, eval = FALSE}
+files <- ffm_jobs("my/videos", type = "video")$input
+probe_all(files)$container
+```
+
+A file that cannot be read gives a row of `NA` values and a warning. The other
+files are still read.
+
+For a large folder, add `parallel = TRUE`. The files are then read in parallel
+with [furrr](https://furrr.futureverse.org/). Each `probe_*()` function takes
+this argument. On the functions other than `probe_all()`, it has an effect only
+when you pass `infile`.
+
+```{r, eval = FALSE}
+probe_all(files, parallel = TRUE)$container
+```
+
+The files are read in parallel only if you set a
+[future](https://future.futureverse.org/) plan. With no plan, they are read one
+at a time, and R gives a warning that says so. `vignette("batch")` shows how to
+set a plan.
+
+## Where to next
+
+- `vignette("workflow")` shows a full research example.
+- `vignette("tidymedia")` explains the task functions and the pipeline
+  functions.
+- `vignette("batch")` shows how to run a task function over many files.

@@ -1,0 +1,643 @@
+# M62: a missing input file is refused at the front door, in both forms.
+# M63: so is one that is there and cannot be read, at the same site.
+#
+# The literal expectations below are written out rather than snapshotted
+# deliberately: a testthat snapshot records itself on first run, so it can
+# witness neither a pre-change string nor a wording moved on purpose.
+
+test_that("the one-path rendering is pinned byte-for-byte", {
+  # M62's `does not exist` moved at M63: the predicate is now readability, and
+  # a file that is there but unopenable is not absent. The pin stays, on the
+  # new string.
+  expect_error(
+    check_file_readable("nope.mp4", arg = "infile"),
+    "^`infile` can't be found or read: 'nope\\.mp4'\\.$"
+  )
+  expect_error(
+    check_file_readable("nope.mp4", arg = "file"),
+    "^`file` can't be found or read: 'nope\\.mp4'\\.$"
+  )
+})
+
+test_that("the existence spelling keeps its own wording for its two callers", {
+  # check_file_exists() is NOT the input front door and did not move: its two
+  # callers (verify_media()'s `file`, mediainfo_template()'s
+  # `templatefile`) have no downstream refusal to agree with, so they keep
+  # M62's exact string. This is the byte-for-byte pin captured from merged
+  # master before the shared checker landed.
+  expect_error(
+    check_file_exists("nope.mp4", arg = "file"),
+    "^`file` does not exist: 'nope\\.mp4'\\.$"
+  )
+})
+
+test_that("a one-path check reports through the shared checker", {
+  # check_file_readable() must delegate, not carry its own copy of the abort.
+  expect_error(check_paths_readable("nope.mp4", arg = "infile"),
+               "^`infile` can't be found or read: 'nope\\.mp4'\\.$")
+})
+
+test_that("a multi-path check leads with the count and names every path", {
+  err <- rlang::catch_cnd(
+    check_paths_readable(c("a.mp4", "b.mp4"), arg = "jobs$input")
+  )
+  msg <- conditionMessage(err)
+  expect_match(msg, "`jobs$input` names 2 files that can't be found or read.",
+               fixed = TRUE)
+  expect_match(msg, "'a.mp4'", fixed = TRUE)
+  expect_match(msg, "'b.mp4'", fixed = TRUE)
+})
+
+test_that("a vector with one missing path still uses the count form", {
+  # The branch is on the ARGUMENT's arity, not the missing count: a jobs column
+  # of five paths with one missing is not a scalar `infile`, and saying
+  # "`jobs$input` does not exist" would misdescribe the column.
+  present <- withr::local_tempfile(fileext = ".mp4")
+  file.create(present)
+  err <- rlang::catch_cnd(
+    check_paths_readable(c(present, "gone.mp4"), arg = "jobs$input")
+  )
+  expect_match(conditionMessage(err),
+               "`jobs$input` names 1 file that can't be found or read.",
+               fixed = TRUE)
+  expect_match(conditionMessage(err), "'gone.mp4'", fixed = TRUE)
+})
+
+test_that("the checker passes a readable path through invisibly", {
+  present <- withr::local_tempfile(fileext = ".mp4")
+  file.create(present)
+  expect_silent(check_paths_readable(present, arg = "infile"))
+  expect_identical(
+    check_paths_readable(c(present, present), arg = "jobs$input"),
+    c(present, present))
+})
+
+test_that("the front door's bad-input abort is written at one site", {
+  bodies <- tm_namespace_bodies()
+  writes <- names(bodies)[grepl("can't be found or read", bodies, fixed = TRUE)]
+  expect_identical(writes, "check_paths_readable")
+})
+
+test_that("the existence abort is written at one site of its own", {
+  bodies <- tm_namespace_bodies()
+  writes <- names(bodies)[grepl("does not exist", bodies, fixed = TRUE)]
+  expect_identical(writes, "check_file_exists")
+})
+
+test_that("no input refusal is worded outside the shared site", {
+  # M62 left ffm_files() wording a second input refusal, with a predicate of its
+  # own, and pinned that residual here so M63 would have something to delete.
+  # This is that deletion, asserted: the retired wording is gone from the
+  # namespace, and ffm_files() carries no refusal text at all.
+  bodies <- tm_namespace_bodies()
+  expect_identical(names(bodies)[grepl("find or read", bodies, fixed = TRUE)],
+                   character(0))
+  expect_identical(names(bodies)[grepl("Not readable", bodies, fixed = TRUE)],
+                   character(0))
+})
+
+test_that("the derived verb sets cover every spec and vice versa", {
+  # The walk fixes membership; the specs supply only call SHAPE. A verb the walk
+  # returns with no spec is a gap in the evidence, and a spec for a verb the
+  # walk does not return is a spec that has stopped describing the package.
+  verbs <- input_guard_verbs()
+  specs <- input_guard_specs()
+  expect_setequal(c(verbs$fanout, verbs$scalar), names(specs))
+  # The walk must also be finding real verbs, not an empty set that would make
+  # every criterion below vacuously true.
+  expect_gt(length(verbs$fanout), 10)
+  expect_gt(length(verbs$scalar), 10)
+})
+
+test_that("the walk excludes a name that only appears inside a message string", {
+  # ffm_manifest()'s body mentions `ffm_batch(` inside a cli hint. A deparsed
+  # substring search calls it a fan-out verb; a call-node walk does not.
+  expect_false("ffm_manifest" %in% input_guard_verbs()$fanout)
+  expect_true(grepl("ffm_batch(",
+                    paste(deparse(body(ffm_manifest)), collapse = " "),
+                    fixed = TRUE))
+})
+
+test_that("every fan-out verb refuses a missing input at its own front door", {
+  verbs <- input_guard_verbs()
+  specs <- input_guard_specs()
+  for (verb in verbs$fanout) {
+    err <- rlang::catch_cnd(specs[[verb]]("m62-absent-input.mp4"))
+    # WHICH failure, not that one occurred: a malformed spec aborts for its own
+    # reason and would otherwise satisfy the call check vacuously (M54/M58).
+    expect_match(conditionMessage(err), "can't be found or read", fixed = TRUE,
+                 info = verb)
+    expect_match(paste(deparse(conditionCall(err)), collapse = " "),
+                 paste0(verb, "("), fixed = TRUE, info = verb)
+  }
+})
+
+test_that("every scalar verb refuses a missing input at its own front door", {
+  verbs <- input_guard_verbs()
+  specs <- input_guard_specs()
+  for (verb in verbs$scalar) {
+    err <- rlang::catch_cnd(specs[[verb]]("m62-absent-input.mp4"))
+    expect_match(conditionMessage(err), "can't be found or read", fixed = TRUE,
+                 info = verb)
+    expect_match(paste(deparse(conditionCall(err)), collapse = " "),
+                 paste0(verb, "("), fixed = TRUE, info = verb)
+  }
+})
+
+test_that("no verb reports the missing input from inside the fan-out", {
+  # The defect this milestone removes, asserted as an absence against the two
+  # names that used to show: purrr's pmap and the Layer-1 builder.
+  verbs <- input_guard_verbs()
+  specs <- input_guard_specs()
+  for (verb in c(verbs$fanout, verbs$scalar)) {
+    err <- rlang::catch_cnd(specs[[verb]]("m62-absent-input.mp4"))
+    shown <- paste(deparse(conditionCall(err)), collapse = " ")
+    expect_false(grepl("pmap", shown, fixed = TRUE), info = verb)
+    expect_false(grepl("ffm_files", shown, fixed = TRUE), info = verb)
+  }
+})
+
+# The three defects the M62 review returned, each pinned where it was measured:
+# at the shared checker AND at the verb whose front door showed it, because the
+# checker being right is not the same claim as every carrier reaching it right.
+
+test_that("one path repeated across rows is one missing file, not several", {
+  # No unique(): a single typo shared by twenty rows read as twenty files, and
+  # on the `inputs` list-column the flattening made it worse (review F3).
+  err <- rlang::catch_cnd(
+    check_paths_readable(rep("gone.mp4", 20), arg = "jobs$input")
+  )
+  expect_match(conditionMessage(err),
+               "`jobs$input` names 1 file that can't be found or read.",
+               fixed = TRUE)
+  jobs <- tibble::tibble(
+    input = rep("m62-gone.mp4", 3),
+    output = file.path(tempdir(), sprintf("m62-dup-%d.mp4", 1:3)))
+  err <- rlang::catch_cnd(
+    crop_video_batch(jobs, width = 10, height = 10, run = FALSE))
+  expect_match(conditionMessage(err),
+               "names 1 file that can't be found or read", fixed = TRUE)
+})
+
+test_that("a verb with two input columns names both missing files", {
+  # Two sweeps, one per column, aborted on the first and hid the second, so a
+  # row missing both named only `main` (review F2).
+  jobs <- tibble::tibble(main = "m62-gone-main.mp4",
+                         overlay = "m62-gone-overlay.mp4",
+                         output = file.path(tempdir(), "m62-pip.mp4"))
+  err <- rlang::catch_cnd(picture_in_picture_batch(jobs, run = FALSE))
+  msg <- conditionMessage(err)
+  expect_match(msg, "`jobs$main` and `jobs$overlay` name 2 files", fixed = TRUE)
+  expect_match(msg, "m62-gone-main.mp4", fixed = TRUE)
+  expect_match(msg, "m62-gone-overlay.mp4", fixed = TRUE)
+})
+
+test_that("a factor path column keeps the abort attributed", {
+  # A factor carries its paths as levels; handed to the predicate raw it raised
+  # an unattributed base error blamed on the predicate -- worse in both message
+  # and blame than what the pipeline said before the sweep existed (review F1).
+  expect_match(
+    conditionMessage(rlang::catch_cnd(check_paths_readable(
+      factor(c("m62-a.mp4", "m62-b.mp4")), arg = "jobs$input"))),
+    "names 2 files that can't be found or read", fixed = TRUE)
+  jobs <- data.frame(input = factor(c("m62-fa.mp4", "m62-fb.mp4")),
+                     start = 0, end = 1)
+  err <- rlang::catch_cnd(segment_video_batch(jobs, run = FALSE))
+  expect_match(conditionMessage(err), "can't be found or read", fixed = TRUE)
+  expect_match(paste(deparse(conditionCall(err)), collapse = " "),
+               "segment_video_batch(", fixed = TRUE)
+})
+
+# M63 -- the front door and the pipeline refuse the same paths, and the wording
+# no longer asserts absence of a file that is there.
+
+# The corpus. A readable directory is in it because file.exists() and
+# file.access(mode = 4) BOTH accept one (measured 2026-08-08), so it is the case
+# where agreement means accepting rather than refusing -- a property test that
+# only ever compared refusals could not see a guard that started refusing
+# directories. An UNREADABLE directory is the case that splits them, and it is
+# here because the readable one alone would have left the claim "a directory
+# passes both predicates" reading as true of directories generally (M63 review).
+tm_path_corpus <- function(dir) {
+  present <- file.path(dir, "m63-present.mp4")
+  file.create(present)
+  subdir <- file.path(dir, "m63-subdir")
+  dir.create(subdir)
+  shut <- file.path(dir, "m63-shut-dir")
+  dir.create(shut)
+  Sys.chmod(shut, "000")
+  list(present = present,
+       absent = file.path(dir, "m63-absent.mp4"),
+       unreadable = tm_unreadable_path(dir),
+       directory = subdir,
+       unreadable_directory = if (file.access(shut, mode = 4) != 0) shut)
+}
+
+# Did this call refuse the INPUT, as opposed to compiling or tripping on
+# something else? Classified from the wording, so a spec that aborts for its own
+# reason cannot read as a refusal (the failure-identity rule).
+tm_refused_input <- function(expr) {
+  cnd <- rlang::catch_cnd(expr)
+  !is.null(cnd) && inherits(cnd, "error") &&
+    grepl("can't be found or read", conditionMessage(cnd), fixed = TRUE)
+}
+
+test_that("the front door and ffm_files() refuse the same set of paths", {
+  dir <- withr::local_tempdir()
+  corpus <- tm_path_corpus(dir)
+  tm_require_unreadable(corpus$unreadable)
+  out <- file.path(dir, "m63-out.mp4")
+  corpus <- corpus[!vapply(corpus, is.null, logical(1))]
+  for (case in names(corpus)) {
+    p <- corpus[[case]]
+    door <- tm_refused_input(check_paths_readable(p, arg = "infile"))
+    pipe <- tm_refused_input(ffm_files(p, out))
+    verb <- tm_refused_input(standardize_video(p, out, run = FALSE))
+    expect_identical(door, pipe, info = case)
+    expect_identical(door, verb, info = case)
+  }
+  # The corpus must also SPLIT, or the identity above holds vacuously over a
+  # corpus that is refused everywhere or nowhere.
+  refused <- vapply(corpus, function(p)
+    tm_refused_input(check_paths_readable(p, arg = "infile")), logical(1))
+  expect_identical(refused[["absent"]], TRUE)
+  expect_identical(refused[["unreadable"]], TRUE)
+  expect_identical(refused[["present"]], FALSE)
+  # A readable directory is accepted and an unreadable one is refused, which is
+  # the predicate applied to a directory rather than a policy about directories:
+  # whether an input slot should take one at all is open (M63's D-entry).
+  expect_identical(refused[["directory"]], FALSE)
+  if (!is.null(corpus$unreadable_directory)) {
+    expect_identical(refused[["unreadable_directory"]], TRUE)
+  }
+})
+
+test_that("the message does not assert absence of a file that is there", {
+  dir <- withr::local_tempdir()
+  p <- tm_unreadable_path(dir)
+  tm_require_unreadable(p)
+  msg <- conditionMessage(rlang::catch_cnd(
+    check_paths_readable(p, arg = "infile")))
+  expect_false(grepl("not exist", msg, fixed = TRUE))
+  expect_match(msg, "`infile` can't be found or read:", fixed = TRUE)
+  expect_match(msg, basename(p), fixed = TRUE)
+  # And the column form, whose summary is the other of the two renderings.
+  msg <- conditionMessage(rlang::catch_cnd(
+    check_paths_readable(c(p, p), arg = "jobs$input")))
+  expect_false(grepl("not exist", msg, fixed = TRUE))
+  expect_match(msg, "`jobs$input` names 1 file that can't be found or read.",
+               fixed = TRUE)
+})
+
+test_that("every verb refuses an unreadable input at its own front door", {
+  # Both walk-derived sets, through M62's specs, so the walk still fixes
+  # membership and this criterion cannot quietly cover fewer verbs than that
+  # one does.
+  dir <- withr::local_tempdir()
+  p <- tm_unreadable_path(dir)
+  tm_require_unreadable(p)
+  verbs <- input_guard_verbs()
+  specs <- input_guard_specs()
+  for (verb in c(verbs$fanout, verbs$scalar)) {
+    err <- rlang::catch_cnd(specs[[verb]](p))
+    expect_match(conditionMessage(err), "can't be found or read", fixed = TRUE,
+                 info = verb)
+    shown <- paste(deparse(conditionCall(err)), collapse = " ")
+    expect_match(shown, paste0(verb, "("), fixed = TRUE, info = verb)
+    # The residual M62 disclosed, asserted gone: this refusal used to come from
+    # inside the fan-out, blamed on ffm_files() or on purrr::pmap().
+    expect_false(grepl("pmap", shown, fixed = TRUE), info = verb)
+    expect_false(grepl("ffm_files", shown, fixed = TRUE), info = verb)
+  }
+})
+
+test_that("the checker blames its caller, not itself", {
+  caller <- function(p) check_paths_readable(p, arg = "infile")
+  err <- rlang::catch_cnd(caller("nope.mp4"))
+  expect_match(paste(deparse(conditionCall(err)), collapse = " "),
+               "caller(", fixed = TRUE)
+})
+
+# M080 -------------------------------------------------------------------
+
+test_that("the abort names only the carriers actually holding a bad path", {
+  # `col` may name several carriers, swept in ONE call so a row missing both
+  # names both (M62 review F2). The count was right and the blame was not:
+  # `arg` was the whole `col` vector, so a row whose `main` is fine and whose
+  # `overlay` is missing still read `` `jobs$main` and `jobs$overlay` `` (M62
+  # N3).
+  dir <- withr::local_tempdir()
+  good <- file.path(dir, "good.mp4")
+  file.create(good)
+  out <- file.path(dir, "out.mp4")
+  unreadable <- tm_unreadable_path(dir)
+  tm_require_unreadable(unreadable)
+
+  # Both halves of D041's predicate: a path that is not there, and one that is
+  # there and cannot be opened. The blame must not depend on which it is.
+  for (bad in list(absent = "gone.mp4", unreadable = unreadable)) {
+    msg <- conditionMessage(rlang::catch_cnd(picture_in_picture_batch(
+      tibble::tibble(main = good, overlay = bad, output = out), run = FALSE)))
+    expect_match(msg,
+                 "`jobs$overlay` names 1 file that can't be found or read.",
+                 fixed = TRUE)
+    expect_false(grepl("jobs$main", msg, fixed = TRUE))
+
+    msg <- conditionMessage(rlang::catch_cnd(picture_in_picture_batch(
+      tibble::tibble(main = bad, overlay = good, output = out), run = FALSE)))
+    expect_match(msg, "`jobs$main` names 1 file that can't be found or read.",
+                 fixed = TRUE)
+    expect_false(grepl("jobs$overlay", msg, fixed = TRUE))
+
+    # Both bad: the one call still names both carriers, which is what the
+    # single-call sweep exists for.
+    msg <- conditionMessage(rlang::catch_cnd(picture_in_picture_batch(
+      tibble::tibble(main = bad, overlay = bad, output = out), run = FALSE)))
+    expect_match(msg, "`jobs$main` and `jobs$overlay` name 1 file", fixed = TRUE)
+  }
+})
+
+test_that("a duplicated absent input reports the path, not the duplication", {
+  # With no `output` column a verb derives one name per input, so it rejects
+  # duplicated inputs before deriving -- and that rejection ran ABOVE the path
+  # sweep, so a table whose rows all name the same file that is not there was
+  # told about the duplication, which names nothing the caller can fix (M62
+  # N7). NEWS.md's "one path typed wrong the same way in twenty rows is one
+  # missing file" was observable only off the explicit-output path.
+  #
+  # The verb set is the walk's, not a list: every verb reaching the shared
+  # helper is exercised, and a verb the walk returns with no call shape here
+  # fails rather than being skipped.
+  graph <- tm_call_graph()
+  exported <- sort(intersect(getNamespaceExports("tidymedia"), names(graph)))
+  verbs <- exported[vapply(exported, function(v)
+    tm_reaches(graph, v, "reject_duplicate_inputs"), logical(1))]
+  expect_gt(length(verbs), 0)
+
+  dir <- withr::local_tempdir()
+  good <- file.path(dir, "good.mp4")
+  file.create(good)
+  boxes <- data.frame(x = 0, y = 0, width = 10, height = 10)
+  shapes <- list(
+    anonymize_video_batch = function(input) anonymize_video_batch(
+      tibble::tibble(input = input,
+                     regions = lapply(input, function(...) boxes)),
+      run = FALSE),
+    standardize_video_batch = function(input) standardize_video_batch(
+      tibble::tibble(input = input), run = FALSE),
+    normalize_audio_batch = function(input) normalize_audio_batch(
+      tibble::tibble(input = input), run = FALSE)
+  )
+  expect_identical(sort(setdiff(verbs, names(shapes))), character(0))
+
+  for (verb in verbs) {
+    msg <- conditionMessage(rlang::catch_cnd(
+      shapes[[verb]](rep("gone.mp4", 2))))
+    expect_match(msg, "`jobs$input` names 1 file that can't be found or read.",
+                 fixed = TRUE, info = verb)
+    expect_false(grepl("duplicated", msg, fixed = TRUE), info = verb)
+
+    # And the case where the new report must stay silent: readable inputs,
+    # duplicated, still get the duplication message they always got.
+    msg <- conditionMessage(rlang::catch_cnd(shapes[[verb]](rep(good, 2))))
+    expect_match(msg, "duplicated input paths but no output column",
+                 fixed = TRUE, info = verb)
+  }
+})
+
+test_that("the duplicated-input abort is worded at one site", {
+  # The three verbs carried a copy each. One site, so a fourth verb inherits
+  # the wording and the order rather than restating them.
+  bodies <- tm_namespace_bodies()
+  hits <- names(bodies)[grepl("has duplicated", bodies, fixed = TRUE)]
+  expect_identical(hits, "reject_duplicate_inputs")
+})
+
+test_that("readability is tested at one site, for the filter as well as the abort", {
+  # D041 made readability one predicate and had both ends reach it, but only
+  # for the ABORT: check_batch_inputs() kept a second file.access(mode = 4) of
+  # its own to pick which carrier columns to name (M81/D059). Membership is
+  # decided by the parsed CALL-NODE walk, never by a substring search of the
+  # deparsed text -- `file.access` inside a comment or a message string is not
+  # a call, which is the confusion helper-input-paths.R exists to avoid.
+  graph <- tm_call_graph()
+  callers <- names(graph)[vapply(graph, function(c) "file.access" %in% c,
+                                 logical(1))]
+  expect_identical(callers, "unreadable_paths")
+
+  # The domain is non-empty and the one site is reached from both ends, so a
+  # green here cannot mean the walk found nothing.
+  expect_gt(length(graph), 0)
+  expect_true(tm_reaches(graph, "check_paths_readable", "unreadable_paths"))
+  expect_true(tm_reaches(graph, "check_batch_inputs", "unreadable_paths"))
+
+  # The predicate answers rather than aborts, and answers with WHICH paths.
+  good <- withr::local_tempfile(fileext = ".mp4")
+  file.create(good)
+  expect_identical(unreadable_paths(good), character(0))
+  expect_identical(unreadable_paths(c(good, "gone.mp4", "gone.mp4")),
+                   "gone.mp4")
+  # A factor carrier reaches file.access() coerced, at this site, whether or
+  # not the caller coerced first (M62 review F1).
+  expect_identical(unreadable_paths(factor("gone.mp4")), "gone.mp4")
+})
+
+test_that("a column-type or scalar-argument error still reports before the path sweep", {
+  # M080's reorder moved check_batch_inputs() above the derived-output block so
+  # a duplicated absent path reports the path (D057). In two of the three verbs
+  # that block sat ABOVE the audio_stream column guard and the scalar
+  # video_codec/audio_stream checks, so the move carried the sweep past those
+  # too -- a precedence reassignment D057 does not license and NEWS.md's
+  # ordering paragraph denies. Pinned here, since no test held it and the
+  # baseline grid had no crossing that could see it (M080 review F1/F2/F3).
+  #
+  # The verb set is the same walk AC5 uses, so a fourth verb reaching the
+  # helper fails here rather than being skipped.
+  graph <- tm_call_graph()
+  exported <- sort(intersect(getNamespaceExports("tidymedia"), names(graph)))
+  verbs <- exported[vapply(exported, function(v)
+    tm_reaches(graph, v, "reject_duplicate_inputs"), logical(1))]
+  expect_gt(length(verbs), 0)
+
+  boxes <- data.frame(x = 0, y = 0, width = 10, height = 10)
+  # Each cell is a call that is wrong about TWO things at once: an absent input
+  # AND a guard above the sweep. The expected message is the guard's, so the
+  # cell fails if the sweep took its place.
+  cases <- list(
+    anonymize_video_batch = list(
+      list(call = function() anonymize_video_batch(
+             tibble::tibble(input = "gone.mp4", regions = list(boxes),
+                            audio_stream = "x"), run = FALSE),
+           want = "The audio_stream column of `jobs` must be numeric"),
+      list(call = function() anonymize_video_batch(
+             tibble::tibble(input = "gone.mp4", regions = list(boxes)),
+             video_codec = 123, run = FALSE),
+           want = "`video_codec` must be a single string or `NULL`"),
+      list(call = function() anonymize_video_batch(
+             tibble::tibble(input = "gone.mp4", regions = list(boxes)),
+             audio_stream = NA, run = FALSE),
+           want = "`audio_stream` must be a whole number or `NULL`")),
+    standardize_video_batch = list(
+      list(call = function() standardize_video_batch(
+             tibble::tibble(input = "gone.mp4", audio_stream = "x"),
+             run = FALSE),
+           want = "The audio_stream column of `jobs` must be numeric"),
+      list(call = function() standardize_video_batch(
+             tibble::tibble(input = "gone.mp4"), video_codec = 123,
+             run = FALSE),
+           want = "`video_codec` must be a single string or `NULL`"),
+      list(call = function() standardize_video_batch(
+             tibble::tibble(input = "gone.mp4"), audio_stream = NA,
+             run = FALSE),
+           want = "`audio_stream` must be a whole number or `NULL`")),
+    # The third verb already checked its columns and scalars above the sweep
+    # before M080 and still does: the untouched shape, so a fix that moved
+    # every verb's sweep instead of the two that flipped would show here.
+    normalize_audio_batch = list(
+      list(call = function() normalize_audio_batch(
+             tibble::tibble(input = "gone.mp4", audio_stream = "x"),
+             run = FALSE),
+           want = "The audio_stream column of `jobs` must be numeric"),
+      list(call = function() normalize_audio_batch(
+             tibble::tibble(input = "gone.mp4"), audio_stream = NA,
+             run = FALSE),
+           want = "`audio_stream` must be a whole number or `NULL`"))
+  )
+  expect_identical(sort(setdiff(verbs, names(cases))), character(0))
+
+  for (verb in verbs) {
+    for (case in cases[[verb]]) {
+      msg <- conditionMessage(rlang::catch_cnd(case$call()))
+      expect_match(msg, case$want, fixed = TRUE, info = verb)
+      expect_false(grepl("can't be found or read", msg, fixed = TRUE),
+                   info = verb)
+    }
+    # The control the pin needs: with every column and argument well formed,
+    # the same absent input IS reported by the sweep -- so the expectations
+    # above record an order and not a guard that never fires.
+    ok <- switch(
+      verb,
+      anonymize_video_batch = function() anonymize_video_batch(
+        tibble::tibble(input = "gone.mp4", regions = list(boxes)),
+        run = FALSE),
+      standardize_video_batch = function() standardize_video_batch(
+        tibble::tibble(input = "gone.mp4"), run = FALSE),
+      normalize_audio_batch = function() normalize_audio_batch(
+        tibble::tibble(input = "gone.mp4"), run = FALSE))
+    expect_match(conditionMessage(rlang::catch_cnd(ok())),
+                 "`jobs$input` names 1 file that can't be found or read.",
+                 fixed = TRUE, info = verb)
+  }
+})
+
+test_that("a scalar argument reports before the duplicated-input refusal", {
+  # The consequence of the two orders above, on the two verbs that have both a
+  # scalar codec argument and a derived-output block: the scalar checks sit
+  # above the path sweep and the duplication refusal sits below it, so a table
+  # that is duplicated AND carries a bad `video_codec` hears about the codec.
+  #
+  # It reads the other way round on `master`, where the duplication block sat
+  # above the scalar checks -- pinned there by test-codec-arg-front-door.R,
+  # whose two cells moved here when M80 put the sweep between them. Nothing
+  # else about that guard changed: the control below is the same call with a
+  # well-formed codec, and it still hears about the duplication.
+  dir <- withr::local_tempdir()
+  good <- file.path(dir, "good.mp4")
+  file.create(good)
+  boxes <- data.frame(x = 0, y = 0, width = 10, height = 10)
+  cases <- list(
+    standardize_video_batch = function(codec) standardize_video_batch(
+      tibble::tibble(input = c(good, good)), video_codec = codec,
+      run = FALSE, parallel = FALSE),
+    anonymize_video_batch = function(codec) anonymize_video_batch(
+      tibble::tibble(input = c(good, good), regions = list(boxes, boxes)),
+      video_codec = codec, run = FALSE, parallel = FALSE)
+  )
+  for (verb in names(cases)) {
+    expect_match(conditionMessage(rlang::catch_cnd(cases[[verb]](NA))),
+                 "`video_codec` must be a single string or `NULL`",
+                 fixed = TRUE, info = verb)
+    expect_match(conditionMessage(rlang::catch_cnd(cases[[verb]]("libx264"))),
+                 "duplicated input paths but no output column",
+                 fixed = TRUE, info = verb)
+  }
+})
+
+test_that("a value or vocabulary argument still reports after the path sweep", {
+  # The other half of the order. What sits ABOVE the sweep package-wide is the
+  # shape and column-type guards; a verb's checks on its own ARGUMENTS split
+  # both ways and NEWS.md deliberately promises no ordering for them -- measured
+  # 2026-08-28, several verbs check a codec token or a bool above the sweep
+  # while these five report after it (D058).
+  #
+  # M080's review returned the milestone twice for a NEWS paragraph wider than
+  # the code, and a third wording drafted in this session was falsified the same
+  # way before it shipped. These are the cells that falsified those claims,
+  # pinned so a later move lifting one of them above the sweep is loud.
+  #
+  # No test can check that the paragraph and the code agree -- that is read by
+  # a person. What this holds is the behaviour those cells record.
+  dir <- withr::local_tempdir()
+  good <- file.path(dir, "good.mp4")
+  good2 <- file.path(dir, "good2.mp4")
+  file.create(good, good2)
+  out <- file.path(dir, "out.mp4")
+
+  cases <- list(
+    list(verb = "standardize_video_batch",
+         bad = function() standardize_video_batch(
+           tibble::tibble(input = "gone.mp4", output = out),
+           width = NA_real_, run = FALSE),
+         ctl = function() standardize_video_batch(
+           tibble::tibble(input = good, output = out),
+           width = NA_real_, run = FALSE),
+         swept = "`jobs$input` names 1 file that can't be found or read.",
+         want = "`width` must be a single FFmpeg expression or number."),
+    list(verb = "normalize_audio_batch",
+         bad = function() normalize_audio_batch(
+           tibble::tibble(input = "gone.mp4", output = out),
+           target_loudness = 999, run = FALSE),
+         ctl = function() normalize_audio_batch(
+           tibble::tibble(input = good, output = out),
+           target_loudness = 999, run = FALSE),
+         swept = "`jobs$input` names 1 file that can't be found or read.",
+         want = "`target_loudness` must be a number between -70 and -5"),
+    list(verb = "picture_in_picture_batch (margin)",
+         bad = function() picture_in_picture_batch(
+           tibble::tibble(main = "gone.mp4", overlay = "gone2.mp4",
+                          output = out), margin = -5, run = FALSE),
+         ctl = function() picture_in_picture_batch(
+           tibble::tibble(main = good, overlay = good2, output = out),
+           margin = -5, run = FALSE),
+         swept = "name 2 files that can't be found or read.",
+         want = "`margin` must be a whole number larger than or equal to 0"),
+    list(verb = "picture_in_picture_batch (position)",
+         bad = function() picture_in_picture_batch(
+           tibble::tibble(main = "gone.mp4", overlay = "gone2.mp4",
+                          output = out), position = "nope", run = FALSE),
+         ctl = function() picture_in_picture_batch(
+           tibble::tibble(main = good, overlay = good2, output = out),
+           position = "nope", run = FALSE),
+         swept = "name 2 files that can't be found or read.",
+         want = "`position` must be one of"),
+    list(verb = "compare_videos_batch (direction)",
+         bad = function() compare_videos_batch(
+           tibble::tibble(inputs = list(c("gone.mp4", "gone2.mp4")),
+                          output = out), direction = "nope", run = FALSE),
+         ctl = function() compare_videos_batch(
+           tibble::tibble(inputs = list(c(good, good2)), output = out),
+           direction = "nope", run = FALSE),
+         swept = "`jobs$inputs` names 2 files that can't be found or read.",
+         want = "`direction` must be one of \"horizontal\" or \"vertical\"")
+  )
+
+  for (case in cases) {
+    # Wrong about the path AND about the argument: the sweep speaks.
+    expect_match(conditionMessage(rlang::catch_cnd(case$bad())),
+                 case$swept, fixed = TRUE, info = case$verb)
+    # The control the pin needs: with the paths readable, the argument check
+    # DOES fire, so the cell records an order and not a guard that never runs.
+    expect_match(conditionMessage(rlang::catch_cnd(case$ctl())),
+                 case$want, fixed = TRUE, info = case$verb)
+  }
+})
