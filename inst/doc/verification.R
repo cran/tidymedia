@@ -9,6 +9,14 @@ knitr::opts_chunk$set(
 has_ffmpeg <- nzchar(Sys.which("ffmpeg"))
 has_ffprobe <- nzchar(Sys.which("ffprobe"))
 has_both <- has_ffmpeg && has_ffprobe
+# Having FFmpeg is not the same as having an encoder: builds differ in what they
+# were compiled with, and some Linux distributions ship one without libx264 or
+# libmp3lame. The chunks that re-encode name their encoder and are evaluated
+# only where this build has it. Asking that question starts FFmpeg, so it is
+# asked in its own guarded chunk below rather than here: this chunk carries no
+# `eval` guard, because it is where the guards are defined, and an unguarded
+# chunk must start no program (`tools/vignette_chunk_guards.R`).
+has_mp3 <- FALSE
 # Recorded on stderr rather than into the page: this line is what a build log
 # shows for the three programs, so a build that was meant to run without them
 # can be checked rather than assumed. `message()` would be captured by knitr and
@@ -22,6 +30,11 @@ writeLines(
 # Work in a temporary directory: nothing is written beside the vignette sources,
 # and the paths in the reports below stay short enough to read.
 knitr::opts_knit$set(root.dir = tempdir())
+
+## ----include = FALSE, eval = has_both-----------------------------------------
+# Guarded on the two programs, so the encoder question starts FFmpeg only where
+# FFmpeg is there to start.
+has_mp3 <- tidymedia::has_encoder("libmp3lame")
 
 ## ----setup--------------------------------------------------------------------
 library(tidymedia)
@@ -46,7 +59,7 @@ verify_media("session01.mp4", pix_fmt = "yuv420p", nb_streams = 2)
 ## ----eval = has_both----------------------------------------------------------
 verify_media("session01.m4a", width = 320, audio_codec = "aac")
 
-## ----eval = has_both----------------------------------------------------------
+## ----eval = has_mp3-----------------------------------------------------------
 jobs <- tibble::tibble(
   input  = "session01.mp4",
   output = "session01.mp3"
@@ -62,7 +75,7 @@ ffm_batch(
   }
 )
 
-## ----eval = has_both----------------------------------------------------------
+## ----eval = has_mp3-----------------------------------------------------------
 res <- ffm_batch(
   jobs,
   manifest = TRUE,
@@ -77,7 +90,7 @@ res
 
 ffm_manifest(res)
 
-## ----eval = has_both----------------------------------------------------------
+## ----eval = has_mp3-----------------------------------------------------------
 res <- ffm_batch(
   jobs,
   manifest = TRUE,
@@ -91,13 +104,14 @@ res <- ffm_batch(
 
 ffm_manifest(res)[, c("input_md5", "output_md5")]
 
-## ----eval = has_both----------------------------------------------------------
+## ----eval = has_mp3-----------------------------------------------------------
 ffm_manifest(res, path = "session01_manifest.csv")
 
 file.exists("session01_manifest.csv")
 
 ## ----eval = has_both, error = TRUE--------------------------------------------
 try({
+jobs <- tibble::tibble(input = "session01.mp4", output = "session01.mp3")
 compiled <- ffm_batch(jobs, run = FALSE, manifest = TRUE, .f = function(input, output, ...) {
   ffm_files(input, output) |> ffm_drop("video")
 })

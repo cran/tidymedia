@@ -10,14 +10,22 @@ refresh_ffmpeg_capabilities()
 \code{NULL}, invisibly. Called for its side effect.
 }
 \description{
-Discard the package's record of which encoders your FFmpeg build has. The
-next query then asks FFmpeg again.
+Discard the package's record of which encoders and codecs your FFmpeg build
+has. The next query then asks FFmpeg again.
 }
 \details{
-The first call in an R session that uses \code{hardware = "nvenc"} or
-\code{hardware = "videotoolbox"} asks FFmpeg which encoders it has. The
-package remembers that answer for the rest of the session. Later calls reuse
+The first call in an R session to \code{\link{has_encoder}}, or one that
+uses \code{hardware = "nvenc"} or \code{hardware = "videotoolbox"}, asks
+FFmpeg which encoders it has. The package remembers that answer for the rest
+of the session. Later calls reuse
 it and do not start FFmpeg again each time, so a large batch stays fast.
+
+A run that FFmpeg refuses can also fill the record. After such a run,
+\code{\link{ffm_run}} can ask FFmpeg for its encoders and for the codecs it
+can encode, to name a missing encoder in the error. The package remembers
+both lists in the same way. A list that FFmpeg did not give is not
+remembered. The section "When the build lacks an encoder" on
+\code{\link{ffm_run}} says when the lists are asked for.
 
 So the package does not see a change to your FFmpeg build until you discard
 the record. Examples of a change are a new FFmpeg install, a new graphics
@@ -75,6 +83,7 @@ FFmpeg.
 Other capability functions:
 \code{\link[=ffmpeg_codecs]{ffmpeg_codecs()}},
 \code{\link[=ffmpeg_encoders]{ffmpeg_encoders()}},
-\code{\link[=hardware_encoder]{hardware_encoder()}}
+\code{\link[=hardware_encoder]{hardware_encoder()}},
+\code{\link[=has_encoder]{has_encoder()}}
 }
 \concept{capability functions}

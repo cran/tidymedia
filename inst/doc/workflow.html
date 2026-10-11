@@ -382,7 +382,7 @@ format:</p>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">width =</span> <span class="dv">1280</span>, <span class="at">height =</span> <span class="dv">720</span>, <span class="at">fps =</span> <span class="dv">30</span>,</span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">run =</span> <span class="cn">FALSE</span></span>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;scale=w=1280:h=720,fps=30\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_std.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;scale=w=1280:h=720,fps=30\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_std.mp4\&quot;&quot;</span></span></code></pre></div>
 <p>To do the same for the whole folder, use the batch version with the
 jobs table. Each task function has a <code>*_batch()</code> version like
 this one. See <code>vignette(&quot;batch&quot;)</code> for how batches work.</p>
@@ -476,7 +476,7 @@ audio file name. An <code>.mp4</code> name would give you a video file
 with sound and no picture:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">normalize_audio</span>(session, <span class="st">&quot;session01_camA_norm.wav&quot;</span>,</span>
 <span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>                <span class="at">target_loudness =</span> <span class="sc">-</span><span class="dv">23</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -map \&quot;0:a:0\&quot; \&quot;session01_camA_norm.wav\&quot;&quot;</span></span></code></pre></div>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -map \&quot;0:a:0\&quot; \&quot;session01_camA_norm.wav\&quot;&quot;</span></span></code></pre></div>
 <p>To set the loudness and keep the picture, first write the audio file
 as above. Then use the direct command <code>ffmpeg()</code> to put it
 back with the video.</p>
@@ -485,7 +485,7 @@ back with the video.</p>
 output extension names. Here that is a <code>.wav</code> file for a
 speech recognition tool:</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">convert_audio</span>(session, <span class="st">&quot;session01_camA.wav&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -q:a 0 -map \&quot;0:a:0\&quot; \&quot;session01_camA.wav\&quot;&quot;</span></span></code></pre></div>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -q:a 0 -map \&quot;0:a:0\&quot; \&quot;session01_camA.wav\&quot;&quot;</span></span></code></pre></div>
 <p>If you need the audio as it is, <code>extract_audio()</code> copies
 it without converting it. See <code>vignette(&quot;tidymedia&quot;)</code>.</p>
 </div>
@@ -495,7 +495,7 @@ it without converting it. See <code>vignette(&quot;tidymedia&quot;)</code>.</p>
 images. <code>extract_frame()</code> saves one frame at a given time.
 This is useful for a picture in a coding manual:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">extract_frame</span>(session, <span class="st">&quot;session01_camA_t30.png&quot;</span>, <span class="at">timestamp =</span> <span class="dv">30</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 30 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -avoid_negative_ts make_zero -qmin 1 -q:v 1 -qscale:v 2 -frames:v 1 -huffman optimal \&quot;session01_camA_t30.png\&quot;&quot;</span></span></code></pre></div>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 30 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -avoid_negative_ts make_zero -qmin 1 -q:v 1 -qscale:v 2 -frames:v 1 -huffman optimal \&quot;session01_camA_t30.png\&quot;&quot;</span></span></code></pre></div>
 <p><code>sample_frames()</code> saves frames at a fixed rate, as
 numbered image files. Here it saves one frame per second, for coding by
 hand or by a computer vision tool:</p>
@@ -511,7 +511,7 @@ cases.</p>
 the camera model, GPS location and recording time. It does not change
 the audio or the video:</p>
 <div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">strip_metadata</span>(session, <span class="st">&quot;session01_camA_clean.mp4&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -map_metadata -1 -map_chapters -1 -fflags +bitexact -map \&quot;0\&quot; \&quot;session01_camA_clean.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -map_metadata -1 -map_chapters -1 -fflags +bitexact -map \&quot;0\&quot; \&quot;session01_camA_clean.mp4\&quot;&quot;</span></span></code></pre></div>
 <p><code>anonymize_video()</code> fills one or more rectangles with a
 solid color. It does not find or follow faces. You give the position of
 an area that does not move, such as a name caption on screen. You give
@@ -521,7 +521,7 @@ the areas as a data frame, with one row for each box:</p>
 <span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>)</span>
 <span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="fu">anonymize_video</span>(session, <span class="st">&quot;session01_camA_deid.mp4&quot;</span>, <span class="at">regions =</span> regions,</span>
 <span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>                <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2,drawbox=x=16:y=640:w=360:h=64:c=black:t=fill\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_deid.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2,drawbox=x=16:y=640:w=360:h=64:c=black:t=fill\&quot; -codec:v libx264 -codec:a copy -pix_fmt yuv420p -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_deid.mp4\&quot;&quot;</span></span></code></pre></div>
 </div>
 <div id="assemble-and-share" class="section level2">
 <h2>5. Assemble and share</h2>
@@ -536,7 +536,7 @@ rate. Here they do, because step 1 made them the same:</p>
 browsers can play. It moves the file’s index to the start, so coders can
 watch it in a browser before it has fully downloaded:</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">format_for_web</span>(session, <span class="st">&quot;session01_camA_share.mp4&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 -codec:a aac -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_share.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=floor(in_w/2)*2:h=floor(in_h/2)*2:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 -codec:a aac -pix_fmt yuv420p -movflags +faststart -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;session01_camA_share.mp4\&quot;&quot;</span></span></code></pre></div>
 </div>
 <div id="reproducibility" class="section level2">
 <h2>Reproducibility</h2>

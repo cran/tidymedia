@@ -166,7 +166,8 @@ resolve_check_tracks <- function(call = rlang::caller_env()) {
 #' before it starts any job. A function that starts no program gives no such
 #' error. For example, [has_hardware_encoder()] starts none when you set
 #' `tidymedia.hardware_encoders`. A `probe_*()` function that you give a
-#' `probe` object also starts none.
+#' `probe` object also starts none. [has_encoder()] is the exception: it checks
+#' the limit first, even on a machine where it finds no FFmpeg to start.
 #'
 #' Most functions check their own arguments before the limit. So a wrong
 #' argument gives its own error, even when the limit is also wrong. A few
@@ -193,8 +194,8 @@ resolve_check_tracks <- function(call = rlang::caller_env()) {
 #' * the task functions whose names do not end in `_batch`, except
 #'   [segment_video()]
 #' * [ffm_run()], [ffmpeg()], [ffprobe()] and [mediainfo()]
-#' * [ffmpeg_codecs()], [ffmpeg_encoders()] and [has_hardware_encoder()] when
-#'   it asks FFmpeg
+#' * [ffmpeg_codecs()] and [ffmpeg_encoders()]
+#' * [has_encoder()] and [has_hardware_encoder()] when they ask FFmpeg
 #' * [verify_media()], because a check with no answer is not a "no"
 #'
 #' These functions give a warning instead, so that one hung file does not lose
@@ -216,7 +217,10 @@ resolve_check_tracks <- function(call = rlang::caller_env()) {
 #' * The dropped-track check of [extract_audio()], [convert_audio()],
 #'   [normalize_audio()] and their `_batch` forms warns that it could not check.
 #'   The track count that [separate_audio_video()] reads after a failed run
-#'   warns the same way. A batch manifest, see [ffm_manifest()], and
+#'   warns the same way. So does the check of FFmpeg's encoder lists that
+#'   [ffm_run()], the task functions and [ffm_batch()] make after a failed run,
+#'   once per call (see "When the build lacks an encoder" on [ffm_run()]). A
+#'   batch manifest, see [ffm_manifest()], and
 #'   [program_status()] warn when they cannot read a program version. These
 #'   warnings have the class `tidymedia_probe_timeout`, and the call goes on as
 #'   it would for an unreadable input.

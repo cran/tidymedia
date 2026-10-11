@@ -466,7 +466,7 @@ manifest is stored with the batch result, and
 <span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 7</span></span>
 <span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a><span class="co">#&gt;   command      input output output_size ffmpeg_version ffprobe_version timestamp</span></span>
 <span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;        &lt;chr&gt; &lt;chr&gt;        &lt;dbl&gt; &lt;chr&gt;          &lt;chr&gt;           &lt;chr&gt;    </span></span>
-<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt; 1 &quot;-y -i \&quot;se… sess… sessi…        8688 9.0.2          9.0.2           2026-09-…</span></span></code></pre></div>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt; 1 &quot;-y -i \&quot;se… sess… sessi…        8688 9.0.2          9.0.2           2026-10-…</span></span></code></pre></div>
 <p>The manifest has one row for each job. The <code>command</code>,
 <code>input</code> and <code>output</code> columns repeat the job. The
 other columns record the run:</p>
@@ -516,14 +516,15 @@ the processed data:</p>
 <p>A batch run with <code>run = FALSE</code> runs nothing, so it has no
 manifest. Reading the manifest of such a batch is an error, not an empty
 tibble:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>compiled <span class="ot">&lt;-</span> <span class="fu">ffm_batch</span>(jobs, <span class="at">run =</span> <span class="cn">FALSE</span>, <span class="at">manifest =</span> <span class="cn">TRUE</span>, <span class="at">.f =</span> <span class="cf">function</span>(input, output, ...) {</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">ffm_files</span>(input, output) <span class="sc">|&gt;</span> <span class="fu">ffm_drop</span>(<span class="st">&quot;video&quot;</span>)</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>})</span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a></span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">ffm_manifest</span>(compiled)</span>
-<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; Error in `ffm_manifest()`:</span></span>
-<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt; ! No provenance manifest is attached to `x`.</span></span>
-<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt; ℹ Run the batch with `ffm_batch(..., manifest = TRUE)` first.</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>jobs <span class="ot">&lt;-</span> tibble<span class="sc">::</span><span class="fu">tibble</span>(<span class="at">input =</span> <span class="st">&quot;session01.mp4&quot;</span>, <span class="at">output =</span> <span class="st">&quot;session01.mp3&quot;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>compiled <span class="ot">&lt;-</span> <span class="fu">ffm_batch</span>(jobs, <span class="at">run =</span> <span class="cn">FALSE</span>, <span class="at">manifest =</span> <span class="cn">TRUE</span>, <span class="at">.f =</span> <span class="cf">function</span>(input, output, ...) {</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">ffm_files</span>(input, output) <span class="sc">|&gt;</span> <span class="fu">ffm_drop</span>(<span class="st">&quot;video&quot;</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>})</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="fu">ffm_manifest</span>(compiled)</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt; Error in `ffm_manifest()`:</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt; ! No provenance manifest is attached to `x`.</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; ℹ Run the batch with `ffm_batch(..., manifest = TRUE)` first.</span></span></code></pre></div>
 </div>
 <div id="bound-a-run-that-hangs" class="section level2">
 <h2>Bound a run that hangs</h2>

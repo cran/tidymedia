@@ -1,6 +1,6 @@
 Package: tidymedia
 Title: Media File Preprocessing and Metadata for the 'tidyverse'
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: 
     person(given = "Jeffrey",
            family = "Girard",
@@ -35,9 +35,9 @@ Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
 Config/Needs/website: pkgdown
 NeedsCompilation: no
-Packaged: 2026-09-29 16:06:56 UTC; jmgirard
+Packaged: 2026-10-11 13:53:25 UTC; jmgirard
 Author: Jeffrey Girard [aut, cre] (ORCID:
     <https://orcid.org/0000-0002-7359-3746>)
 Maintainer: Jeffrey Girard <me@jmgirard.com>
 Repository: CRAN
-Date/Publication: 2026-10-10 10:30:02 UTC
+Date/Publication: 2026-10-11 14:30:02 UTC

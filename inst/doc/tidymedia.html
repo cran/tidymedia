@@ -364,11 +364,11 @@ commands.</p>
 The function then returns the command as a string that you can read, log
 or save:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">extract_audio</span>(video, <span class="st">&quot;audio.m4a&quot;</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:0\&quot; \&quot;audio.m4a\&quot;&quot;</span></span></code></pre></div>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:0\&quot; \&quot;audio.m4a\&quot;&quot;</span></span></code></pre></div>
 <p>This is the main idea of the package. You can read each command
 before you run it. Cropping works the same way:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">crop_video</span>(video, <span class="st">&quot;cropped.mp4&quot;</span>, <span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
 <div id="choosing-an-audio-track" class="section level3">
 <h3>Choosing an audio track</h3>
 <p>Some recordings have more than one audio track, for example a room
@@ -379,7 +379,7 @@ has an <code>audio_stream</code> argument. It counts from 0, and it
 counts only the audio tracks. So <code>audio_stream = 1</code> is the
 second audio track, wherever it sits in the file:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">extract_audio</span>(video, <span class="st">&quot;lapel.m4a&quot;</span>, <span class="at">audio_stream =</span> <span class="dv">1</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:1\&quot; \&quot;lapel.m4a\&quot;&quot;</span></span></code></pre></div>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -codec:a copy -vn -map \&quot;0:a:1\&quot; \&quot;lapel.m4a\&quot;&quot;</span></span></code></pre></div>
 <p>If you leave <code>audio_stream</code> out, the default depends on
 the function. A function that writes exactly one audio track, such as
 <code>extract_audio()</code>, takes the first track. A function that
@@ -387,7 +387,7 @@ passes the audio through, such as <code>crop_video()</code>, keeps every
 track. Compare the <code>-map</code> parts of the two commands above and
 below:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">crop_video</span>(video, <span class="st">&quot;cropped.mp4&quot;</span>, <span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:a copy -map \&quot;0:v?\&quot; -map \&quot;0:a?\&quot; \&quot;cropped.mp4\&quot;&quot;</span></span></code></pre></div>
 <p>The help page <code>?audio_stream</code> lists which functions use
 each default. It also explains <code>audio_input</code>, which the
 functions for several input files use. That argument counts input files
@@ -427,7 +427,7 @@ turns the pipeline into the FFmpeg command:</p>
 <span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">ffm_crop</span>(<span class="at">width =</span> <span class="dv">160</span>, <span class="at">height =</span> <span class="dv">120</span>) <span class="sc">|&gt;</span></span>
 <span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="fu">ffm_codec</span>(<span class="at">video =</span> <span class="st">&quot;libx264&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;trim=start=1:end=5,setpts=PTS-STARTPTS,crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;trim=start=1:end=5,setpts=PTS-STARTPTS,crop=w=160:h=120:x=(in_w-out_w)/2:y=(in_h-out_h)/2\&quot; -codec:v libx264 \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
 <p>When you print a pipeline, R shows the same command. So you can look
 at a pipeline at any point:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;output.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
@@ -435,7 +435,7 @@ at a pipeline at any point:</p>
 <span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">ffm_pixel_format</span>(<span class="st">&quot;yuv420p&quot;</span>)</span>
 <span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; tidymedia ffmpeg pipeline:</span></span>
 <span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt;  -y -i &quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4&quot; -vf &quot;scale=w=320:h=240&quot; -pix_fmt yuv420p &quot;output.mp4&quot;</span></span></code></pre></div>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt;  -y -i &quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4&quot; -vf &quot;scale=w=320:h=240&quot; -pix_fmt yuv420p &quot;output.mp4&quot;</span></span></code></pre></div>
 <p>To run the command and write the output file, use
 <code>ffm_run()</code> in place of <code>ffm_compile()</code>.</p>
 <div id="more-pipeline-steps" class="section level3">
@@ -447,7 +447,7 @@ can hide a name on screen:</p>
 <span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">ffm_fps</span>(<span class="dv">15</span>) <span class="sc">|&gt;</span></span>
 <span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">ffm_drawbox</span>(<span class="at">x =</span> <span class="dv">10</span>, <span class="at">y =</span> <span class="dv">10</span>, <span class="at">width =</span> <span class="dv">60</span>, <span class="at">height =</span> <span class="dv">40</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;fps=15,drawbox=x=10:y=10:w=60:h=40:c=black:t=fill\&quot; \&quot;boxed.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -vf \&quot;fps=15,drawbox=x=10:y=10:w=60:h=40:c=black:t=fill\&quot; \&quot;boxed.mp4\&quot;&quot;</span></span></code></pre></div>
 <p><code>ffm_loudnorm()</code> makes audio a set loudness, in <a href="#glossary">LUFS</a>, with a limit on its <a href="#glossary">true
 peak</a>. Here <code>ffm_drop()</code> also leaves the video out of the
 output:</p>
@@ -455,14 +455,14 @@ output:</p>
 <span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">ffm_drop</span>(<span class="st">&quot;video&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">ffm_loudnorm</span>(<span class="at">target_loudness =</span> <span class="sc">-</span><span class="dv">23</span>, <span class="at">true_peak =</span> <span class="sc">-</span><span class="dv">1</span>) <span class="sc">|&gt;</span></span>
 <span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -vn \&quot;speech.m4a\&quot;&quot;</span></span></code></pre></div>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -af \&quot;loudnorm=I=-23:TP=-1:LRA=7,asetnsamples=n=4096:p=0\&quot; -vn \&quot;speech.m4a\&quot;&quot;</span></span></code></pre></div>
 <p><code>ffm_output_options()</code> adds FFmpeg output options that
 have no pipeline function of their own. tidymedia still puts them in the
 right place in the command:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">ffm_files</span>(video, <span class="st">&quot;web.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="fu">ffm_output_options</span>(<span class="st">&quot;-movflags +faststart&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -movflags +faststart \&quot;web.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -movflags +faststart \&quot;web.mp4\&quot;&quot;</span></span></code></pre></div>
 </div>
 </div>
 <div id="fast-cuts-and-exact-cuts" class="section level2">
@@ -477,7 +477,7 @@ and add <code>ffm_copy()</code> for a fast cut:</p>
 <span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">ffm_seek</span>(<span class="at">start =</span> <span class="dv">1</span>, <span class="at">end =</span> <span class="dv">5</span>, <span class="at">reencode =</span> <span class="cn">FALSE</span>) <span class="sc">|&gt;</span></span>
 <span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="fu">ffm_copy</span>() <span class="sc">|&gt;</span></span>
 <span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 1 -to 5 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -avoid_negative_ts make_zero -map \&quot;0\&quot; \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -ss 1 -to 5 -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -codec:v copy -codec:a copy -avoid_negative_ts make_zero -map \&quot;0\&quot; \&quot;output.mp4\&quot;&quot;</span></span></code></pre></div>
 <p><code>ffm_seek()</code> uses FFmpeg’s <code>-ss</code> and
 <code>-to</code> options. <code>ffm_trim()</code> uses FFmpeg’s
 <code>trim</code> filter. Only <code>ffm_seek()</code> can make a fast
@@ -494,7 +494,7 @@ cut.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">ffm_files</span>(<span class="fu">c</span>(video, video), <span class="st">&quot;side_by_side.mp4&quot;</span>) <span class="sc">|&gt;</span></span>
 <span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">ffm_hstack</span>() <span class="sc">|&gt;</span></span>
 <span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">ffm_compile</span>()</span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]hstack=inputs=2:shortest=0[vout]\&quot; -map \&quot;[vout]\&quot; \&quot;side_by_side.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]hstack=inputs=2:shortest=0[vout]\&quot; -map \&quot;[vout]\&quot; \&quot;side_by_side.mp4\&quot;&quot;</span></span></code></pre></div>
 <p><code>ffm_hstack()</code>, <code>ffm_vstack()</code> and
 <code>ffm_overlay()</code> leave the audio out. To keep it, add
 <code>ffm_map(&quot;0:a&quot;)</code>. <code>ffm_concat()</code> keeps all the
@@ -509,7 +509,7 @@ the input whose audio to keep. They copy that audio unchanged unless you
 choose an audio <a href="#glossary">encoder</a> with
 <code>audio_codec</code>.</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">compare_videos</span>(<span class="fu">c</span>(video, video), <span class="st">&quot;compare.mp4&quot;</span>, <span class="at">audio_input =</span> <span class="dv">0</span>, <span class="at">run =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/RtmpI5eZw9/Rinst877f72a946bf/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[0s][1s];[1s][0s]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[1s][0s];[0s][1s]hstack,setsar=1[vout]\&quot; -codec:a copy -map \&quot;[vout]\&quot; -map \&quot;0:a\&quot; \&quot;compare.mp4\&quot;&quot;</span></span></code></pre></div>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;-y -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -i \&quot;/private/var/folders/px/frfvbz4n0sx90__c62fwwzz40000gn/T/Rtmp2b2hTq/Rinst16b84bbde6be/tidymedia/extdata/sample.mp4\&quot; -filter_complex \&quot;[0:v][1:v]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[0s][1s];[1s][0s]scale2ref=&#39;oh*mdar&#39;:&#39;if(lt(main_h,ih),ih,main_h)&#39;[1s][0s];[0s][1s]hstack,setsar=1[vout]\&quot; -codec:a copy -map \&quot;[vout]\&quot; -map \&quot;0:a\&quot; \&quot;compare.mp4\&quot;&quot;</span></span></code></pre></div>
 <p>A pipeline has one input chain, a list of filters in order, and one
 output. It cannot build an FFmpeg filter graph with branches. For that,
 use the direct command <code>ffmpeg()</code>:</p>

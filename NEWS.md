@@ -1,3 +1,82 @@
+# tidymedia 0.2.2
+
+The package no longer assumes things about the machine it runs on that are not
+true everywhere. The fixes answer check failures on the two Fedora flavors CRAN
+uses, whose FFmpeg has no `libx264` and whose `which` does not answer for a
+path. A failed run also says now when your FFmpeg build lacks an encoder the
+run used.
+
+## New features
+
+* **A failed run now says when your FFmpeg build lacks an encoder it used.**
+  After FFmpeg exits non-zero, `ffm_run()` and the task functions that use it
+  check the video and audio codec the run named. If your build lists no such
+  encoder, the error names it and has the new class
+  `tidymedia_encoder_unavailable`, before `tidymedia_ffmpeg_exit`. Its
+  `tm_encoder` and `tm_stream` fields hold the names and `"video"` or
+  `"audio"`. A codec name such as `"h264"` counts when the build can encode
+  it. The error names the function you called, such as `standardize_video()`.
+  The class says the build lacks the encoder, not that the lack made the run
+  fail: FFmpeg uses no video encoder for an input without video, so such a
+  run can fail for another reason and still get the class.
+  One case keeps its old error: `separate_audio_video()` on an input with
+  several audio tracks, with no `audio_stream` and an audio file type that
+  holds only one track (such as `.mp3` or `.aac`), still gives its error about
+  several audio tracks.
+  A batch gives one warning of the same class after its jobs run, naming each
+  encoder and the rows of the jobs table `ffm_batch()` ran. That table can
+  differ from yours: `separate_audio_video_batch()` gives it two rows per
+  input, and `normalize_audio_batch(two_pass = TRUE)` leaves out silent
+  inputs. If reading FFmpeg's lists reaches `options(tidymedia.timeout = )`,
+  one `tidymedia_probe_timeout` warning says so, once per call. A run that
+  succeeds, and a call with `run = FALSE`, compile the same command as before,
+  and the check after a failed run never runs for them, so a dry run can
+  still show a command your build cannot run. The hardware-encoder error for
+  `fallback = FALSE`, which a dry run can also give, now has the same class.
+  `ffmpeg_encoders()` and `ffmpeg_codecs()` no longer print FFmpeg's version
+  banner.
+
+* **New `has_encoder()`** asks whether your FFmpeg build has a named encoder,
+  such as `"libx264"` or `"libmp3lame"`. Builds differ in what they were
+  compiled with, and some Linux distributions ship an FFmpeg without `libx264`,
+  because x264 is not free software. The answer comes from the same list
+  `ffmpeg_encoders()` returns, asked once per session and then remembered.
+  `refresh_ffmpeg_capabilities()` makes the next call ask again.
+
+## Bug fixes
+
+* **Examples and vignette chunks that re-encode now run only where your build
+  has the encoder they name.** On a build without `libx264`, the example on
+  `?ffm_run` used to fail with FFmpeg's own "Unknown encoder" error. Three
+  examples that had left an encoder to the output container now name it: the
+  audio encoder on `?ffm_run`, and the examples on `?ffm_manifest` and
+  `?normalize_audio_batch`. Nothing about a call you write yourself has
+  changed.
+
+* **A remembered program location is now read from the filesystem.** Finding out
+  whether a saved path still names a program you can run went through
+  `Sys.which()`. That hands the question to whatever `which` the machine
+  provides, and some machines answer nothing at all for a path. `find_ffmpeg()`
+  and its siblings, `set_ffmpeg()` and its siblings, and `install_on_win()` now
+  ask the filesystem instead. A location you type as a bare name, with no
+  folder in it, is still looked up on your `PATH`. On Windows a location is
+  read the way R's own `Sys.which()` reads it there, so a location such as
+  `C:/tools/ffmpeg` still finds `C:/tools/ffmpeg.exe`. The two exceptions are
+  that a folder never counts as a program and a leading `~` is expanded.
+
+* **A location that starts with `~` now works.** `set_ffmpeg("~/bin/ffmpeg")`
+  and its siblings used to refuse it. They now save it with your home folder
+  written out in full, and a saved location that starts with `~` is read the
+  same way. Most calls start the program with its location in quotes, and the
+  system does not expand a `~` inside quotes.
+
+* **A saved location that cannot be run now says so.** Where the file is there
+  but has no permission to execute, the warning says the file cannot be run.
+  It carries the class `tidymedia_location_not_executable` rather than
+  reporting that the file no longer exists. `program_status()` surfaces it
+  beside the other two repairable states. On Windows there is no execute bit,
+  so this warning does not arise there.
+
 # tidymedia 0.2.1
 
 Documentation fixes for the first CRAN submission. No code changed, and no
